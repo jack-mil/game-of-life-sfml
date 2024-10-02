@@ -1,0 +1,7 @@
+---
+Checks:          'clang-diagnostic-*,clang-analyzer-*,*,-clang-analyzer-alpha.*'
+WarningsAsErrors: ''
+HeaderFilterRegex: ''
+AnalyzeTemporaryDtors: false
+FormatStyle:     'file'
+...
