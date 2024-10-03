@@ -30,3 +30,4 @@ ColumnLimit: 200
 InsertBraces: true
 PointerAlignment: Left
 PackConstructorInitializers: NextLine
+SortIncludes: CaseInsensitive
