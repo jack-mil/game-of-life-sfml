@@ -27,17 +27,17 @@ include(FetchContent)
 )
 FetchContent_MakeAvailable(SFML)
 
-# Add the command line argument parser header-only library
-add_library(clipp INTERFACE)
+# Add the header-only libraries
+add_library(third-party INTERFACE)
 
 # SYSTEM keyword prevents warnings from external libraries
-target_include_directories(clipp SYSTEM INTERFACE "third-party/")
+target_include_directories(third-party SYSTEM INTERFACE "third-party/")
 
 # Add the executable
 add_executable(${PROJECT_NAME} src/main.cpp)
 
 # link libraries (static SFML)
-target_link_libraries(${PROJECT_NAME} PRIVATE clipp sfml-graphics)
+target_link_libraries(${PROJECT_NAME} PRIVATE third-party sfml-graphics)
 
 # Link OpenMP libraries
 if(OpenMP_CXX_FOUND)

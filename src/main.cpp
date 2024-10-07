@@ -15,7 +15,11 @@ Game of Life implemented with a choice of several multithreading techniques
 
 // Command line argument parsing
 // https://github.com/muellan/clipp
-#include "clipp.h"
+#include <clipp.h>
+
+// Simple tread pooling implementation
+// https://github.com/alugowski/task-thread-pool
+#include <task-thread-pool.hpp>
 
 // Type alias to save space
 using Grid = std::vector<std::vector<bool>>;
@@ -47,9 +51,10 @@ void seedRandomGrid(Grid& grid)
  * @param y row pos
  * @return uint number of neighbors
  */
-uint countNeighbors(const Grid& grid, Grid::size_type x, Grid::size_type y)
+inline uint countNeighbors(const Grid& grid, size_t x, size_t y)
 {
     uint count = 0;
+    // This will probably be unrolled
     for (int i = -1; i <= 1; ++i)
     {
         for (int j = -1; j <= 1; ++j)
@@ -65,6 +70,34 @@ uint countNeighbors(const Grid& grid, Grid::size_type x, Grid::size_type y)
         }
     }
     return count;
+}
+
+inline void updateSingleCell(const Grid& current, Grid& next, size_t x, size_t y)
+{
+    uint neighbors = countNeighbors(current, x, y);
+
+    if (current[x][y])
+    {
+        if (neighbors < 2 || neighbors > 3)
+        {
+            next[x][y] = false; // Cell dies
+        }
+        else
+        {
+            next[x][y] = true; // Continues to live
+        }
+    }
+    else
+    {
+        if (neighbors == 3)
+        {
+            next[x][y] = true; // Cell becomes alive
+        }
+        else
+        {
+            next[x][y] = false; // Remains dead
+        }
+    }
 }
 
 /**
@@ -95,40 +128,18 @@ void drawGrid(const Grid& grid, const int cellSize, sf::RenderTarget& window)
 
 /**
  * Given the current state, write the next state to `next`,
- * according to the classic Game of Life rules
- * @param grid
+ * according to the classic Game of Life rules.
+ * Uses regular sequential processing.
+ * @param current
  * @param next
  */
-void updateGrid(const Grid& grid, Grid& next)
+void updateGridSEQ(const Grid& current, Grid& next)
 {
-    for (size_t x = 0; x < grid.size(); ++x)
+    for (size_t x = 0; x < current.size(); ++x)
     {
-        for (size_t y = 0; y < grid[x].size(); ++y)
+        for (size_t y = 0; y < current[x].size(); ++y)
         {
-            uint neighbors = countNeighbors(grid, x, y);
-
-            if (grid[x][y])
-            {
-                if (neighbors < 2 || neighbors > 3)
-                {
-                    next[x][y] = false; // Cell dies
-                }
-                else
-                {
-                    next[x][y] = true; // Continues to live
-                }
-            }
-            else
-            {
-                if (neighbors == 3)
-                {
-                    next[x][y] = true; // Cell becomes alive
-                }
-                else
-                {
-                    next[x][y] = false; // Remains dead
-                }
-            }
+            updateSingleCell(current, next, x, y);
         }
     }
 }
@@ -171,14 +182,14 @@ void handleWindowEvents(sf::RenderWindow& window)
 
 int main(int argc, char* argv[])
 {
-    enum class Mode { Sequencial, Threads, OpenMp };
+    enum class Mode { Sequential, Threads, OpenMP };
 
     // Runtime parameters and defaults
-    Mode mode   = Mode::Sequencial;
-    int  count  = 8;
-    int  size   = 5;
-    int  width  = 800;
-    int  height = 600;
+    Mode mode    = Mode::Threads;
+    int  threads = 8;
+    int  size    = 5;
+    int  width   = 800;
+    int  height  = 600;
 
     { // clang-format off
     using namespace clipp;
@@ -189,11 +200,11 @@ int main(int argc, char* argv[])
         (option("-x", "--width" )  & integer("WIDTH" ).set(width )).doc("Width of the window (default=" + to_string(width)          + ")" ),
         (option("-y", "--height")  & integer("HEIGHT").set(height)).doc("Height of the window (default=" + to_string(height)        + ")" ),
         (option("-c", "--size")    & integer("SIZE"  ).set(size  )).doc("Size in pixels of each cell (default=" + to_string(size)   + ")" ),
-        (option("-n", "--threads") & integer("COUNT" ).set(count )).doc("How many threads to use (>2) (default=" + to_string(count) + ")" ),
+        (option("-n", "--threads") & integer("COUNT" ).set(threads)).doc("How many threads to use (>2) (default=" + to_string(threads) + ")" ),
         (option("-t", "--mode")    & one_of(
-                                    required("SEQ" ).set(mode, Mode::Sequencial),
+                                    required("SEQ" ).set(mode, Mode::Sequential),
                                     required("THRD").set(mode, Mode::Threads),
-                                    required("OMP" ).set(mode, Mode::OpenMp) ) ).doc("Type of parallelism to use (default: Sequential)")
+                                    required("OMP" ).set(mode, Mode::OpenMP) ) ).doc("Type of parallelism to use (default: Sequential)")
     );
 
     // If any errors parsing, print help and exit
@@ -215,7 +226,7 @@ int main(int argc, char* argv[])
     };
     } // clang-format on
 
-    // parameters available to use here...
+    // cli parameters available to use here...
 
     const int grid_width  = width / size;
     const int grid_height = height / size;
@@ -232,14 +243,53 @@ int main(int argc, char* argv[])
     Grid* current = &grid_current;
     Grid* next    = &grid_next;
 
+    task_thread_pool::task_thread_pool pool(threads);
+
+    sf::Clock clock;
+    sf::Time  elapsed = sf::Time::Zero;
+    long int  count   = 0;
+
     /* Do 'game' loop */
     while (window.isOpen())
     {
         // check for close
         handleWindowEvents(window);
 
-        // write next generation into next
-        updateGrid(*current, *next);
+        clock.restart();
+
+        switch (mode)
+        {
+        case Mode::Sequential:
+            updateGridSEQ(*current, *next);
+            break;
+        case Mode::Threads: {
+            const auto numThreads = pool.get_num_threads();
+            const auto step       = current->size() / numThreads;
+            for (size_t start = 0; start < current->size(); start += step)
+            {
+
+                pool.submit_detach(
+                    [](size_t start, size_t end, Grid* current, Grid* next) {
+                        for (size_t xi = start; xi < end; ++xi)
+                        {
+                            for (size_t y = 0; y < (*current)[xi].size(); ++y)
+                            {
+                                updateSingleCell(*current, *next, xi, y);
+                            }
+                        }
+                    },
+                    start, start + step, current, next);
+            }
+            pool.wait_for_tasks();
+        }
+        break;
+        case Mode::OpenMP:
+            // updateGridOMP(*current, *next);
+            break;
+        }
+
+        // record the time taken to calculate the next generation
+        elapsed += clock.restart();
 
         // make everything black
         window.clear();
@@ -252,6 +302,25 @@ int main(int argc, char* argv[])
 
         // swap pointers, ready for next iteration.
         std::swap(current, next);
+
+        // every 100 generations, print the elapsed time and reset;
+        if (count % 100)
+        {
+            switch (mode)
+            {
+            case Mode::Sequential:
+                std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with a single thread." << std::endl;
+                break;
+            case Mode::Threads:
+                std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with " << threads << " std::threads." << std::endl;
+                break;
+            case Mode::OpenMP:
+                std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with " << threads << " OMP threads." << std::endl;
+                break;
+            }
+            elapsed = sf::Time::Zero;
+        }
+        count++;
     }
 
     return EXIT_SUCCESS;
