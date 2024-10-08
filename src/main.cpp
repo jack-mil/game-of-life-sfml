@@ -306,16 +306,17 @@ int main(int argc, char* argv[])
         // every 100 generations, print the elapsed time and reset;
         if (count % 100)
         {
+            
             switch (mode)
             {
             case Mode::Sequential:
-                std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with a single thread." << std::endl;
+                std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with a single thread.\r";
                 break;
             case Mode::Threads:
-                std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with " << threads << " std::threads." << std::endl;
+                std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with " << threads << " std::threads.\r";
                 break;
             case Mode::OpenMP:
-                std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with " << threads << " OMP threads." << std::endl;
+                std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with " << threads << " OMP threads.\r";
                 break;
             }
             elapsed = sf::Time::Zero;
