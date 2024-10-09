@@ -4,10 +4,6 @@ cmake_minimum_required(VERSION 3.26)
 # Project Name (Game Of Life)
 project(gol)
 
-# Set the C++ standard
-# set(CMAKE_CXX_STANDARD 17)
-# set(CMAKE_CXX_STANDARD_REQUIRED True)
-
 # Find OpenMP
 # find_package(OpenMP REQUIRED)
 
@@ -42,7 +38,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE third-party sfml-graphics)
 # Link OpenMP libraries
 if(OpenMP_CXX_FOUND)
     target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
-    endif()
+endif()
 
 # require c++20 features
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
