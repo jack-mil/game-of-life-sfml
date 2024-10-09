@@ -17,9 +17,11 @@ should display or print the Life world
 
 using Mode = gol::Mode;
 
+using Alive = char;
+
 // Type alias to save space
-using Row  = std::vector<bool>;
-using Grid = std::vector<Row>;
+using Grid = std::vector<std::vector<Alive>>;
+
 
 class Life {
   public:

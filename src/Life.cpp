@@ -20,14 +20,14 @@ void updateGridOMP(const Grid&, Grid&, int);
 void updateGridSEQ(const Grid&, Grid&);
 
 inline int  countNeighbors(const Grid&, size_t, size_t);
-inline bool simulateSingleCell(const Grid&, size_t, size_t);
+inline Alive simulateSingleCell(const Grid&, size_t, size_t);
 
 Life::Life(int rows, int cols, Mode mode)
     : m_mode{mode}
 {
     // allocate vectors
-    m_bfr_current = Grid(rows, Row(cols, false));
-    m_bfr_next    = Grid(rows, Row(cols, false));
+    m_bfr_current = Grid(rows, std::vector<Alive>(cols, 0));
+    m_bfr_next    = Grid(rows, std::vector<Alive>(cols, 0));
 
     // Start with a random initial state
     this->seedRandom();
@@ -40,10 +40,10 @@ Life::Life(int rows, int cols, Mode mode)
 void Life::seedRandom()
 {
     std::default_random_engine  gen(std::random_device{}());
-    std::bernoulli_distribution coin_flip(0.5);
+    std::bernoulli_distribution coin_flip(0.5); // uniform boolean true/false distribution
     for (auto& row : m_bfr_current) {
-        for (auto cell : row) {
-            cell = coin_flip(gen);
+        for (auto& cell : row) {
+            cell = static_cast<Alive>(coin_flip(gen));
         }
     }
 }
@@ -129,26 +129,26 @@ void updateGridOMP(const Grid& current, Grid& next, int numThreads)
  * @param row pos of the cell
  * @param col pos of the cell
  */
-inline bool simulateSingleCell(const Grid& current, size_t row, size_t col)
+inline Alive simulateSingleCell(const Grid& current, size_t row, size_t col)
 {
     uint neighbors = countNeighbors(current, row, col);
 
     if (current[row][col]) // currently alive
     {
         if (neighbors < 2 || neighbors > 3) {
-            return false; // Cell dies
+            return 0; // Cell dies
         }
         else {
-            return true; // Continues to live
+            return 1; // Continues to live
         }
     }
     else // currently dead
     {
         if (neighbors == 3) {
-            return true; // Cell becomes alive
+            return 1; // Cell becomes alive
         }
         else {
-            return false; // Remains dead
+            return 0; // Remains dead
         }
     }
 }
@@ -172,7 +172,7 @@ inline int countNeighbors(const Grid& grid, size_t row, size_t col)
                 Grid::size_type ny = (row + i + grid.size()) % grid.size();
                 Grid::size_type nx = (col + j + grid[row].size()) % grid[row].size();
 
-                count += static_cast<uint>(grid[ny][nx]); // interpret bool as 1/0
+                count += static_cast<int>(grid[ny][nx]); // interpret bool as 1/0
             }
         }
     }
