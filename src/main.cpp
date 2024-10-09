@@ -10,8 +10,12 @@ Game of Life implemented with a choice of several multithreading techniques
 
 #include <iostream>
 #include <random>
-#include <SFML/Graphics.hpp>
 #include <vector>
+
+#include <omp.h>
+
+// Compiled from source using CMake FetchContent
+#include <SFML/Graphics.hpp>
 
 // Command line argument parsing
 // https://github.com/muellan/clipp
@@ -54,48 +58,48 @@ void seedRandomGrid(Grid& grid)
 inline uint countNeighbors(const Grid& grid, size_t x, size_t y)
 {
     uint count = 0;
-    // This will probably be unrolled
+    // This probably gets unrolled
     for (int i = -1; i <= 1; ++i)
     {
         for (int j = -1; j <= 1; ++j)
         {
-            if (i == 0 && j == 0)
+            // skip checking the center cell
+            if (i || j) [[likely]]
             {
-                continue;
-            }
-            Grid::size_type nx = (x + i + grid.size()) % grid.size();
-            Grid::size_type ny = (y + j + grid[x].size()) % grid[x].size();
+                Grid::size_type nx = (x + i + grid.size()) % grid.size();
+                Grid::size_type ny = (y + j + grid[x].size()) % grid[x].size();
 
-            count += static_cast<uint>(grid[nx][ny]); // interpret bool as 1/0
+                count += static_cast<uint>(grid[nx][ny]); // interpret bool as 1/0
+            }
         }
     }
     return count;
 }
 
-inline void updateSingleCell(const Grid& current, Grid& next, size_t x, size_t y)
+inline bool simulateSingleCell(const Grid& current, size_t x, size_t y)
 {
     uint neighbors = countNeighbors(current, x, y);
 
-    if (current[x][y])
+    if (current[x][y]) // currently alive
     {
         if (neighbors < 2 || neighbors > 3)
         {
-            next[x][y] = false; // Cell dies
+            return false; // Cell dies
         }
         else
         {
-            next[x][y] = true; // Continues to live
+            return true; // Continues to live
         }
     }
-    else
+    else // currently dead
     {
         if (neighbors == 3)
         {
-            next[x][y] = true; // Cell becomes alive
+            return true; // Cell becomes alive
         }
         else
         {
-            next[x][y] = false; // Remains dead
+            return false; // Remains dead
         }
     }
 }
@@ -109,15 +113,17 @@ inline void updateSingleCell(const Grid& current, Grid& next, size_t x, size_t y
  */
 void drawGrid(const Grid& grid, const int cellSize, sf::RenderTarget& window)
 {
+    // One rectangle can be drawn many times in different locations
+    sf::RectangleShape rect(sf::Vector2f(cellSize, cellSize));
+    rect.setFillColor(sf::Color::White);
+
     for (size_t x = 0; const auto& col : grid)
     {
         for (size_t y = 0; bool cell : col)
         {
             if (cell)
             {
-                sf::RectangleShape rect(sf::Vector2f(cellSize, cellSize));
                 rect.setPosition(x * cellSize, y * cellSize);
-                rect.setFillColor(sf::Color::White);
                 window.draw(rect);
             }
             y++;
@@ -139,7 +145,22 @@ void updateGridSEQ(const Grid& current, Grid& next)
     {
         for (size_t y = 0; y < current[x].size(); ++y)
         {
-            updateSingleCell(current, next, x, y);
+            next[x][y] = simulateSingleCell(current, x, y);
+        }
+    }
+}
+
+void updateGridOMP(const Grid& current, Grid& next, int numThreads)
+{
+    omp_set_num_threads(numThreads);
+
+
+#pragma omp parallel for schedule(static)
+    for (size_t x = 0; x < current.size(); ++x)
+    {
+        for (size_t y = 0; y < current[x].size(); ++y)
+        {
+            next[x][y] = simulateSingleCell(current, x, y);
         }
     }
 }
@@ -245,9 +266,11 @@ int main(int argc, char* argv[])
 
     task_thread_pool::task_thread_pool pool(threads);
 
-    sf::Clock clock;
-    sf::Time  elapsed = sf::Time::Zero;
-    long int  count   = 0;
+    sf::Clock        clock;
+    sf::Time         elapsed = sf::Time::Zero;
+    constexpr double alpha   = 1.0 / 100.0; // average over the last 100 samples (of 100 generations)
+    long int         count   = 0;
+    double           average = 0;
 
     /* Do 'game' loop */
     while (window.isOpen())
@@ -274,7 +297,7 @@ int main(int argc, char* argv[])
                         {
                             for (size_t y = 0; y < (*current)[xi].size(); ++y)
                             {
-                                updateSingleCell(*current, *next, xi, y);
+                                (*next)[xi][y] = simulateSingleCell(*current, xi, y);
                             }
                         }
                     },
@@ -284,12 +307,16 @@ int main(int argc, char* argv[])
         }
         break;
         case Mode::OpenMP:
-            // updateGridOMP(*current, *next);
+            updateGridOMP(*current, *next, threads);
             break;
         }
 
         // record the time taken to calculate the next generation
         elapsed += clock.restart();
+        if (count == 0)
+        {
+            average = elapsed.asMicroseconds(); // prime the first average sample
+        }
 
         // make everything black
         window.clear();
@@ -306,7 +333,7 @@ int main(int argc, char* argv[])
         // every 100 generations, print the elapsed time and reset;
         if (count % 100)
         {
-            
+
             switch (mode)
             {
             case Mode::Sequential:
@@ -319,10 +346,15 @@ int main(int argc, char* argv[])
                 std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with " << threads << " OMP threads.\r";
                 break;
             }
+            // Exponential moving average
+            average = (alpha * elapsed.asMicroseconds()) + (1.0 - alpha) * average;
+            // Reset timer
             elapsed = sf::Time::Zero;
         }
         count++;
     }
+
+    std::cout << std::endl << "Runtime average " << average << " μs/100 generations." << std::endl;
 
     return EXIT_SUCCESS;
 }
