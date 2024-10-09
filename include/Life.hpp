@@ -31,9 +31,10 @@ class Life {
      *
      * @param rows number of rows in the universe
      * @param cols number of cols in the universe
+     * @param threads number of threads for multithreaded modes (default 8)
      * @param mode parallelism to use (default none)
      */
-    Life(size_t rows, size_t cols, Mode mode = Mode::Sequential);
+    Life(size_t rows, size_t cols, Mode mode = Mode::Sequential, int threads = 8 );
     Life() = delete; // no default constructor
 
     /** Run a single iteration of the Rules on the current state */
@@ -57,7 +58,7 @@ class Life {
     /** Run Game of Life with no multithreading */
     void updateGridSEQ();
     /** Run Game of Life using OpenMP threading */
-    void updateGridOMP(int threads);
+    void updateGridOMP();
     /** Run Game of Life using std::thread pooling */
 
     /** Return what the next state of the cell at (row,col) should be */
@@ -73,6 +74,9 @@ class Life {
 
     /** Parallelization technique to use */
     gol::Mode m_mode;
+
+    /** Number of threads to use for multithreading modes */
+    int m_threads;
 
     /** Buffer with current state */
     Grid m_bfr_current;

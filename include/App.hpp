@@ -14,7 +14,7 @@ class App {
      * @param height height of the application window (px)
      * @param mode what type of parallelization to use
      */
-    App(size_t width, size_t height, size_t cellSize, gol::Mode mode, int threadCount = 8);
+    App(size_t width, size_t height, size_t cellSize, gol::Mode mode = gol::Mode::Sequential, int threads = 8);
 
     /** Entrypoint to game loop. Call this to start the application */
     void run();

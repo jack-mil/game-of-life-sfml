@@ -16,10 +16,10 @@ Control the SFML OS window and display the Game of Life simulation on the screen
 
 using Mode = gol::Mode;
 
-App::App(size_t width, size_t height, size_t cellSize, Mode mode, int threadCount)
+App::App(size_t width, size_t height, size_t cellSize, Mode mode, int threads)
     : m_mode{mode},
-      m_life{width / cellSize, height / cellSize, mode},
-      m_threads{threadCount},
+      m_life{width / cellSize, height / cellSize, mode, threads},
+      m_threads{threads},
       m_cellSprite{sf::Vector2f(cellSize, cellSize)}
 {
     setupWindow(width, height);

@@ -13,10 +13,11 @@ Implementation of Game of Life rules. Does not display anything.
 
 #include "Life.hpp"
 
-Life::Life(size_t rows, size_t cols, Mode mode)
+Life::Life(size_t rows, size_t cols, Mode mode, int threads)
     : m_width(cols),
       m_height(rows),
       m_mode{mode},
+      m_threads{threads},
       m_bfr_current(rows * cols, 0),
       m_bfr_next(rows * cols, 0)
 {
@@ -52,11 +53,12 @@ void Life::updateLife()
     // Pick an implementation
     switch (m_mode) {
     case Mode::Sequential:
-        updateGridSEQ();
-        break;
-    case Mode::Threads:
+        this->updateGridSEQ();
         break;
     case Mode::OpenMP:
+        this->updateGridOMP();
+        break;
+    case Mode::Threads:
         break;
     }
 
@@ -104,14 +106,12 @@ inline void Life::setCell(size_t row, size_t col, Alive state)
  * Given the current state, write the next state to `next`,
  * according to the classic Game of Life rules.
  * Uses regular sequential processing.
- * @param current
- * @param next
  */
 void Life::updateGridSEQ()
 {
     for (size_t row = 0; row < m_height; ++row) {
         for (size_t col = 0; col < m_width; ++col) {
-            Alive state = simulateSingleCell(row, col);
+            Alive state = this->simulateSingleCell(row, col);
             this->setCell(row, col, state);
         }
     }
@@ -121,17 +121,15 @@ void Life::updateGridSEQ()
  * Given the current state, write the next state to `next`,
  * according to the classic Game of Life rules.
  * Uses OpenMP parallelism
- * @param current
- * @param next
  */
-void Life::updateGridOMP(int threads)
+void Life::updateGridOMP()
 {
-    omp_set_num_threads(threads);
+    omp_set_num_threads(m_threads);
 
 #pragma omp parallel for schedule(static)
     for (size_t row = 0; row < m_height; ++row) {
         for (size_t col = 0; col < m_width; ++col) {
-            Alive state = simulateSingleCell(row, col);
+            Alive state = this->simulateSingleCell(row, col);
             this->setCell(row, col, state);
         }
     }
