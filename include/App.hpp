@@ -14,14 +14,14 @@ class App {
      * @param height height of the application window (px)
      * @param mode what type of parallelization to use
      */
-    App(int width, int height, int cellSize, gol::Mode mode, int threadCount = 8);
+    App(size_t width, size_t height, size_t cellSize, gol::Mode mode, int threadCount = 8);
 
     /** Entrypoint to game loop. Call this to start the application */
     void run();
 
   private:
     /** Create the application window and position it*/
-    void setupWindow(uint width, uint height);
+    void setupWindow(size_t width, size_t height);
 
     /** Handle closing the SFML window */
     void handleEvents();

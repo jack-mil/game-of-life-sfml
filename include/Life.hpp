@@ -17,11 +17,10 @@ should display or print the Life world
 
 using Mode = gol::Mode;
 
-using Alive = char;
+using Alive = unsigned char;
 
 // Type alias to save space
-using Grid = std::vector<std::vector<Alive>>;
-
+using Grid = std::vector<Alive>;
 
 class Life {
   public:
@@ -34,7 +33,7 @@ class Life {
      * @param cols number of cols in the universe
      * @param mode parallelism to use (default none)
      */
-    Life(int rows, int cols, Mode mode = Mode::Sequential);
+    Life(size_t rows, size_t cols, Mode mode = Mode::Sequential);
     Life() = delete; // no default constructor
 
     /** Run a single iteration of the Rules on the current state */
@@ -49,6 +48,28 @@ class Life {
   private:
     /** Setup initial random state */
     void seedRandom();
+
+    /** Get the state of a current cell */
+    Alive getCell(size_t row, size_t col) const;
+    /** Set the state for next iteration */
+    void setCell(size_t row, size_t col, Alive state);
+
+    /** Run Game of Life with no multithreading */
+    void updateGridSEQ();
+    /** Run Game of Life using OpenMP threading */
+    void updateGridOMP(int threads);
+    /** Run Game of Life using std::thread pooling */
+
+    /** Return what the next state of the cell at (row,col) should be */
+    Alive simulateSingleCell(size_t row, size_t col) const;
+    /** Return how many living neighbors around a cell at (row,col) */
+    int countNeighbors(size_t row, size_t col) const;
+
+    /** Number of cell columns */
+    size_t m_width;
+
+    /** Number of cell rows */
+    size_t m_height;
 
     /** Parallelization technique to use */
     gol::Mode m_mode;

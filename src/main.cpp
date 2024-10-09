@@ -29,11 +29,11 @@ int main(int argc, char* argv[])
     using Mode = gol::Mode;
 
     // Runtime parameters and defaults
-    Mode mode    = Mode::Threads;
-    int  threads = 8;
-    int  size    = 5;
-    int  width   = 800;
-    int  height  = 600;
+    Mode   mode    = Mode::Threads;
+    int    threads = 8;
+    size_t size    = 5;
+    size_t width   = 800;
+    size_t height  = 600;
 
     { // clang-format off
 

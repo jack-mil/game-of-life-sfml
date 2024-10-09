@@ -13,21 +13,16 @@ Implementation of Game of Life rules. Does not display anything.
 
 #include "Life.hpp"
 
-// forward declare some implementation details
-// that don't need to be class members or
-// exposed in header
-void updateGridOMP(const Grid&, Grid&, int);
-void updateGridSEQ(const Grid&, Grid&);
-
-inline int  countNeighbors(const Grid&, size_t, size_t);
-inline Alive simulateSingleCell(const Grid&, size_t, size_t);
-
-Life::Life(int rows, int cols, Mode mode)
-    : m_mode{mode}
+Life::Life(size_t rows, size_t cols, Mode mode)
+    : m_width(cols),
+      m_height(rows),
+      m_mode{mode},
+      m_bfr_current(rows * cols, 0),
+      m_bfr_next(rows * cols, 0)
 {
     // allocate vectors
-    m_bfr_current = Grid(rows, std::vector<Alive>(cols, 0));
-    m_bfr_next    = Grid(rows, std::vector<Alive>(cols, 0));
+    // m_bfr_current = Grid(rows, std::vector<Alive>(cols, 0));
+    // m_bfr_next    = Grid(rows, std::vector<Alive>(cols, 0));
 
     // Start with a random initial state
     this->seedRandom();
@@ -41,10 +36,10 @@ void Life::seedRandom()
 {
     std::default_random_engine  gen(std::random_device{}());
     std::bernoulli_distribution coin_flip(0.5); // uniform boolean true/false distribution
-    for (auto& row : m_bfr_current) {
-        for (auto& cell : row) {
-            cell = static_cast<Alive>(coin_flip(gen));
-        }
+    for (auto& cell : m_bfr_current) {
+        cell = static_cast<Alive>(coin_flip(gen));
+        // for (auto& cell : row) {
+        // }
     }
 }
 
@@ -57,7 +52,7 @@ void Life::updateLife()
     // Pick an implementation
     switch (m_mode) {
     case Mode::Sequential:
-        updateGridSEQ(m_bfr_current, m_bfr_next);
+        updateGridSEQ();
         break;
     case Mode::Threads:
         break;
@@ -77,14 +72,32 @@ void Life::updateLife()
 std::vector<std::pair<int, int>> Life::getLiveCells() const
 {
     std::vector<std::pair<int, int>> liveCells;
-    for (size_t row = 0; row < m_bfr_current.size(); ++row) {
-        for (size_t col = 0; col < m_bfr_current.at(row).size(); ++col) {
-            if (m_bfr_current.at(row).at(col)) {
+    for (size_t row = 0; row < m_height; ++row) {
+        for (size_t col = 0; col < m_width; ++col) {
+            if (this->getCell(row, col)) {
                 liveCells.emplace_back(row, col);
             }
         }
     }
     return liveCells;
+}
+
+/**
+ * Convert row,col specifier to the 1D vector access
+ * Reads from current state
+ */
+inline Alive Life::getCell(size_t row, size_t col) const
+{
+    return m_bfr_current.at(row * m_width + col);
+}
+
+/**
+ * Convert row,col specifier to the 1D vector access.
+ * Changes contents of next buffer
+ * */
+inline void Life::setCell(size_t row, size_t col, Alive state)
+{
+    m_bfr_next.at(row * m_width + col) = state;
 }
 
 /**
@@ -94,11 +107,12 @@ std::vector<std::pair<int, int>> Life::getLiveCells() const
  * @param current
  * @param next
  */
-void updateGridSEQ(const Grid& current, Grid& next)
+void Life::updateGridSEQ()
 {
-    for (size_t x = 0; x < current.size(); ++x) {
-        for (size_t y = 0; y < current[x].size(); ++y) {
-            next[x][y] = simulateSingleCell(current, x, y);
+    for (size_t row = 0; row < m_height; ++row) {
+        for (size_t col = 0; col < m_width; ++col) {
+            Alive state = simulateSingleCell(row, col);
+            this->setCell(row, col, state);
         }
     }
 }
@@ -110,14 +124,15 @@ void updateGridSEQ(const Grid& current, Grid& next)
  * @param current
  * @param next
  */
-void updateGridOMP(const Grid& current, Grid& next, int numThreads)
+void Life::updateGridOMP(int threads)
 {
-    omp_set_num_threads(numThreads);
+    omp_set_num_threads(threads);
 
 #pragma omp parallel for schedule(static)
-    for (size_t x = 0; x < current.size(); ++x) {
-        for (size_t y = 0; y < current[x].size(); ++y) {
-            next[x][y] = simulateSingleCell(current, x, y);
+    for (size_t row = 0; row < m_height; ++row) {
+        for (size_t col = 0; col < m_width; ++col) {
+            Alive state = simulateSingleCell(row, col);
+            this->setCell(row, col, state);
         }
     }
 }
@@ -129,11 +144,11 @@ void updateGridOMP(const Grid& current, Grid& next, int numThreads)
  * @param row pos of the cell
  * @param col pos of the cell
  */
-inline Alive simulateSingleCell(const Grid& current, size_t row, size_t col)
+inline Alive Life::simulateSingleCell(size_t row, size_t col) const
 {
-    uint neighbors = countNeighbors(current, row, col);
+    uint neighbors = countNeighbors(row, col);
 
-    if (current[row][col]) // currently alive
+    if (this->getCell(row, col)) // currently alive
     {
         if (neighbors < 2 || neighbors > 3) {
             return 0; // Cell dies
@@ -159,9 +174,9 @@ inline Alive simulateSingleCell(const Grid& current, size_t row, size_t col)
  * @param grid world to check
  * @param row pos of the cell
  * @param col pos of the cell
- * @return uint number of neighbors
+ * @return number of neighbors
  */
-inline int countNeighbors(const Grid& grid, size_t row, size_t col)
+inline int Life::countNeighbors(size_t row, size_t col) const
 {
     int count = 0;
     // This probably gets unrolled
@@ -169,10 +184,10 @@ inline int countNeighbors(const Grid& grid, size_t row, size_t col)
         for (int j = -1; j <= 1; ++j) {
             // skip checking the center cell
             if (i || j) [[likely]] {
-                Grid::size_type ny = (row + i + grid.size()) % grid.size();
-                Grid::size_type nx = (col + j + grid[row].size()) % grid[row].size();
+                size_t nrow = (row + i + m_height) % m_height;
+                size_t ncol = (col + j + m_width) % m_width;
 
-                count += static_cast<int>(grid[ny][nx]); // interpret bool as 1/0
+                count += static_cast<int>(this->getCell(nrow, ncol)); // interpret Alive as 1/0
             }
         }
     }

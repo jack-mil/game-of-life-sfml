@@ -16,7 +16,7 @@ Control the SFML OS window and display the Game of Life simulation on the screen
 
 using Mode = gol::Mode;
 
-App::App(int width, int height, int cellSize, Mode mode, int threadCount)
+App::App(size_t width, size_t height, size_t cellSize, Mode mode, int threadCount)
     : m_mode{mode},
       m_life{width / cellSize, height / cellSize, mode},
       m_threads{threadCount},
@@ -26,7 +26,7 @@ App::App(int width, int height, int cellSize, Mode mode, int threadCount)
     m_cellSprite.setFillColor(sf::Color::White);
 }
 
-void App::setupWindow(uint width, uint height)
+void App::setupWindow(size_t width, size_t height)
 {
     m_window.create(sf::VideoMode(width, height), "Game of Life - Jackson Miller - ECE6122");
 
