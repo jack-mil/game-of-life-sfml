@@ -27,7 +27,14 @@ add_library(third-party INTERFACE)
 target_include_directories(third-party SYSTEM INTERFACE "third-party/")
 
 # Add the executable target
-add_executable(${PROJECT_NAME} src/main.cpp)
+add_executable(${PROJECT_NAME}
+                src/main.cpp 
+                src/App.cpp 
+                src/Life.cpp
+)
+
+# Include my headers
+target_include_directories(${PROJECT_NAME} PRIVATE include/)
 
 # link dependency libraries (static SFML)
 target_link_libraries(${PROJECT_NAME} PRIVATE third-party sfml-graphics)
@@ -40,7 +47,7 @@ if(OpenMP_CXX_FOUND)
 endif()
 
 # require c++20 features
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 
 
 # enable compiler warnings
@@ -52,5 +59,3 @@ target_compile_options(${PROJECT_NAME} PRIVATE
                                         -Werror
                                         -pedantic
                                         -pedantic-errors)
-
-                                        
