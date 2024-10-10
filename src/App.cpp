@@ -16,14 +16,20 @@ Control the SFML OS window and display the Game of Life simulation on the screen
 
 using Mode = gol::Mode;
 
-App::App(size_t width, size_t height, size_t cellSize, Mode mode, int threads)
+App::App(size_t width, size_t height, size_t cellSize, Mode mode, int threads, bool no_gui)
     : m_mode{mode},
       m_life{width / cellSize, height / cellSize, mode, threads},
       m_threads{threads},
+      m_no_gui{no_gui},
       m_cellSprite{sf::Vector2f(cellSize, cellSize)}
 {
-    setupWindow(width, height);
-    m_cellSprite.setFillColor(sf::Color::White);
+    if (!no_gui) {
+        setupWindow(width, height);
+        m_cellSprite.setFillColor(sf::Color::White);
+    }
+
+    // imbue a locale to force comma seperated values (non-portable)
+    std::cout.imbue(std::locale("en_US.utf8"));
 }
 
 void App::setupWindow(size_t width, size_t height)
@@ -50,8 +56,7 @@ void App::run()
 
     long int iterations = 0;
 
-    while (m_window.isOpen()) {
-        handleEvents();
+    while (m_window.isOpen() || m_no_gui) {
 
         // Simulate the next generation,
         // and time how long it takes with the current mode
@@ -60,11 +65,22 @@ void App::run()
         elapsed += timer.restart();
 
         // every 100 iterations, print timing and reset time measurement
+        iterations++;
         if (iterations % 100 == 0) {
             printTimings(elapsed);
             elapsed = sf::Time::Zero;
         }
-        iterations++;
+
+        // quite after 600 iterations when running without a GUI
+        if (m_no_gui && iterations > 600) {
+            break;
+        }
+
+        // Don't do SFML display stuff if no GUI mode
+        if (m_no_gui) {
+            continue;
+        }
+        handleEvents();
 
         // Clear the window (old frame)
         m_window.clear();
@@ -82,13 +98,13 @@ void App::printTimings(sf::Time elapsed)
 {
     switch (m_mode) {
     case Mode::Sequential:
-        std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with a single thread." << std::endl;
+        std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with a single thread." << '\n';
         break;
     case Mode::Threads:
-        std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with " << m_threads << " std::threads." << std::endl;
+        std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with " << m_threads << " std::threads." << '\n';
         break;
     case Mode::OpenMP:
-        std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with " << m_threads << " OMP threads." << std::endl;
+        std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with " << m_threads << " OMP threads." << '\n';
         break;
     }
     // Reset timer

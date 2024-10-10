@@ -30,6 +30,7 @@ int main(int argc, char* argv[])
 
     // Runtime parameters and defaults
     Mode   mode    = Mode::Threads;
+    bool   no_gui  = false;
     int    threads = 8;
     size_t size    = 5;
     size_t width   = 800;
@@ -50,7 +51,8 @@ int main(int argc, char* argv[])
         (option("-t", "--mode")    & one_of(
                                     required("SEQ" ).set(mode, Mode::Sequential),
                                     required("THRD").set(mode, Mode::Threads),
-                                    required("OMP" ).set(mode, Mode::OpenMP) ) ).doc("Type of parallelism to use (default: Sequential)")
+                                    required("OMP" ).set(mode, Mode::OpenMP) ) ).doc("Type of parallelism to use (default: Sequential)"),
+        option("-d","--no-gui").set(no_gui).doc("Only run performance timings.")
     );
 
     // If any errors parsing, print help and exit
@@ -76,7 +78,7 @@ int main(int argc, char* argv[])
     // cli parameters available to use here...
 
     // create the app with command line arguments (or defaults if not specified)
-    App app{width, height, size, mode, threads};
+    App app{width, height, size, mode, threads, no_gui};
 
     // run the SFML loop
     app.run();
