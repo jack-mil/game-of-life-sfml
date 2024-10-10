@@ -1,2 +1,2 @@
 #/usr/bin/env sh
-clang-format -style=file src/*.[ch]pp -i $@
+clang-format -style=file src/*.[ch]pp include/*.hpp -i $@
