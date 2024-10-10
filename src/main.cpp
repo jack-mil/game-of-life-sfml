@@ -17,10 +17,6 @@ Game of Life implemented with a choice of several multithreading techniques
 // https://github.com/muellan/clipp
 #include <clipp.h>
 
-// Simple tread pooling implementation
-// https://github.com/alugowski/task-thread-pool
-#include <task-thread-pool.hpp>
-
 #include "App.hpp"
 
 /** Parse command line arguments and start the application */
@@ -31,7 +27,7 @@ int main(int argc, char* argv[])
     // Runtime parameters and defaults
     Mode   mode    = Mode::Threads;
     bool   no_gui  = false;
-    int    threads = 8;
+    uint   threads = 8;
     size_t size    = 5;
     size_t width   = 800;
     size_t height  = 600;
@@ -51,7 +47,7 @@ int main(int argc, char* argv[])
         (option("-t", "--mode")    & one_of(
                                     required("SEQ" ).set(mode, Mode::Sequential),
                                     required("THRD").set(mode, Mode::Threads),
-                                    required("OMP" ).set(mode, Mode::OpenMP) ) ).doc("Type of parallelism to use (default: Sequential)"),
+                                    required("OMP" ).set(mode, Mode::OpenMP) ) ).doc("Type of parallelism to use (default: std::thread)"),
         option("-d","--no-gui").set(no_gui).doc("Only run performance timings.")
     );
 
@@ -75,35 +71,13 @@ int main(int argc, char* argv[])
 
     } // clang-format on
 
-    // cli parameters available to use here...
+    // cli parameters available to use here
 
     // create the app with command line arguments (or defaults if not specified)
     App app{width, height, size, mode, threads, no_gui};
 
     // run the SFML loop
     app.run();
-
-    // task_thread_pool::task_thread_pool pool(threads);
-    // case Mode::Threads: {
-    //     const auto numThreads = pool.get_num_threads();
-    //     const auto step       = current->size() / numThreads;
-    //     for (size_t start = 0; start < current->size(); start += step)
-    //     {
-
-    //         pool.submit_detach(
-    //             [](size_t start, size_t end, Grid* current, Grid* next) {
-    //                 for (size_t xi = start; xi < end; ++xi)
-    //                 {
-    //                     for (size_t y = 0; y < (*current)[xi].size(); ++y)
-    //                     {
-    //                         (*next)[xi][y] = simulateSingleCell(*current, xi, y);
-    //                     }
-    //                 }
-    //             },
-    //             start, start + step, current, next);
-    //     }
-    //     pool.wait_for_tasks();
-    // }
 
     return EXIT_SUCCESS;
 }

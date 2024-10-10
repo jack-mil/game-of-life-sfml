@@ -14,7 +14,9 @@ class App {
      * @param height height of the application window (px)
      * @param mode what type of parallelization to use
      */
-    App(size_t width, size_t height, size_t cellSize, gol::Mode mode = gol::Mode::Sequential, int threads = 8, bool no_gui = false);
+    App(size_t width, size_t height, size_t cellSize,
+        gol::Mode mode = gol::Mode::Sequential,
+        uint threads = 8u, bool no_gui = false);
 
     /** Entrypoint to game loop. Call this to start the application */
     void run();
@@ -36,16 +38,16 @@ class App {
     sf::RenderWindow m_window;
 
     /** mode this application is running in */
-    gol::Mode m_mode;
+    const gol::Mode m_mode;
 
     /** Game of Life simulator */
     Life m_life;
 
     /** Number of threads to use in OMP or THRD mode */
-    int m_threads;
+    const uint m_threads;
 
     /** Whether a window should be displayed, or just print the processing timings */
-    bool m_no_gui;
+    const bool m_no_gui;
 
     /** Drawable to represent a living cell */
     sf::RectangleShape m_cellSprite;

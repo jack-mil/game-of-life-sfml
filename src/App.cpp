@@ -16,7 +16,7 @@ Control the SFML OS window and display the Game of Life simulation on the screen
 
 using Mode = gol::Mode;
 
-App::App(size_t width, size_t height, size_t cellSize, Mode mode, int threads, bool no_gui)
+App::App(size_t width, size_t height, size_t cellSize, Mode mode, uint threads, bool no_gui)
     : m_mode{mode},
       m_life{width / cellSize, height / cellSize, mode, threads},
       m_threads{threads},
@@ -29,7 +29,7 @@ App::App(size_t width, size_t height, size_t cellSize, Mode mode, int threads, b
     }
 
     // imbue a locale to force comma seperated values (non-portable)
-    std::cout.imbue(std::locale("en_US.utf8"));
+    std::cout.imbue(std::locale(""));
 }
 
 void App::setupWindow(size_t width, size_t height)

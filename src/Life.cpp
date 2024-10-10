@@ -4,29 +4,40 @@ Class: ECE6122 A
 Last Date Modified: 2024-10-09
 
 Description:
-Implementation of Game of Life rules. Does not display anything.
+Implementation of Game of Life rules. Does not display the simulated world.
 */
 
 #include <random>
 
 #include <omp.h>
 
+// Simple thread pooling implementation
+// https://github.com/alugowski/task-thread-pool
+#include <task-thread-pool.hpp>
+
 #include "Life.hpp"
 
-Life::Life(size_t rows, size_t cols, Mode mode, int threads)
+Life::Life(size_t rows, size_t cols, Mode mode, uint threads)
     : m_width(cols),
       m_height(rows),
-      m_mode{mode},
-      m_threads{threads},
-      m_bfr_current(rows * cols, 0),
-      m_bfr_next(rows * cols, 0)
+      m_mode{mode},                    // Mode enum specifies the multi-threading technique
+      m_threads{threads},              // save number of std::threads as member
+      m_chunkSize{m_height / threads}, // Chunk size for std::thread pooling
+      m_bfr_current(rows * cols, 0),   // allocate grid buffers with dead cells
+      m_bfr_next(rows * cols, 0)       // second buffer
 {
-    // allocate vectors
-    // m_bfr_current = Grid(rows, std::vector<Alive>(cols, 0));
-    // m_bfr_next    = Grid(rows, std::vector<Alive>(cols, 0));
 
     // Start with a random initial state
     this->seedRandom();
+
+    if (m_mode == Mode::Threads) {
+        m_pool_ptr = new task_thread_pool::task_thread_pool{threads};
+    }
+}
+
+Life::~Life()
+{
+    delete m_pool_ptr;
 }
 
 /**
@@ -59,6 +70,7 @@ void Life::updateLife()
         this->updateGridOMP();
         break;
     case Mode::Threads:
+        this->updateGridThreads();
         break;
     }
 
@@ -129,6 +141,31 @@ void Life::updateGridOMP()
 #pragma omp parallel for schedule(static)
     for (size_t row = 0; row < m_height; ++row) {
         for (size_t col = 0; col < m_width; ++col) {
+            Alive state = this->simulateSingleCell(row, col);
+            this->setCell(row, col, state);
+        }
+    }
+}
+
+void Life::updateGridThreads()
+{
+    // split the rows into several chunks, and dispatch threads to handle each section
+    for (size_t start = 0; start < m_height; start += m_chunkSize) {
+
+        m_pool_ptr->submit_detach(&Life::process_chunk, this, start, start + m_chunkSize);
+    }
+
+    m_pool_ptr->wait_for_tasks();
+}
+
+/**
+ * Run the game of life rules on a subset of the entire grid
+ * Used by the std::thread pooling technique
+ */
+void Life::process_chunk(size_t start_row, size_t end_row)
+{
+    for (size_t row = start_row; row < end_row; ++row) {
+        for (size_t col = 0; col < this->m_width; ++col) {
             Alive state = this->simulateSingleCell(row, col);
             this->setCell(row, col, state);
         }

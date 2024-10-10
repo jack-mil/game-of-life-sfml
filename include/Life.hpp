@@ -13,6 +13,8 @@ should display or print the Life world
 #include <utility> // std::pair
 #include <vector>  // std::vector
 
+
+
 #include "Mode.hpp"
 
 using Mode = gol::Mode;
@@ -21,6 +23,9 @@ using Alive = unsigned char;
 
 // Type alias to save space
 using Grid = std::vector<Alive>;
+
+// forward declare thead pooling type
+namespace task_thread_pool {class task_thread_pool;};
 
 class Life {
   public:
@@ -34,8 +39,9 @@ class Life {
      * @param threads number of threads for multithreaded modes (default 8)
      * @param mode parallelism to use (default none)
      */
-    Life(size_t rows, size_t cols, Mode mode = Mode::Sequential, int threads = 8 );
+    Life(size_t rows, size_t cols, Mode mode = Mode::Sequential, uint threads = 8 );
     Life() = delete; // no default constructor
+    ~Life();
 
     /** Run a single iteration of the Rules on the current state */
     void updateLife();
@@ -60,6 +66,8 @@ class Life {
     /** Run Game of Life using OpenMP threading */
     void updateGridOMP();
     /** Run Game of Life using std::thread pooling */
+    void updateGridThreads();
+    void process_chunk(size_t start_row, size_t end_row);
 
     /** Return what the next state of the cell at (row,col) should be */
     Alive simulateSingleCell(size_t row, size_t col) const;
@@ -67,16 +75,21 @@ class Life {
     int countNeighbors(size_t row, size_t col) const;
 
     /** Number of cell columns */
-    size_t m_width;
+    const size_t m_width;
 
     /** Number of cell rows */
-    size_t m_height;
+    const size_t m_height;
 
     /** Parallelization technique to use */
-    gol::Mode m_mode;
+    const gol::Mode m_mode;
 
     /** Number of threads to use for multithreading modes */
-    int m_threads;
+    const uint m_threads;
+
+    const size_t m_chunkSize; 
+
+    /** Thread pool setup only if using std::thread pooling mode */
+    task_thread_pool::task_thread_pool* m_pool_ptr = nullptr;
 
     /** Buffer with current state */
     Grid m_bfr_current;
