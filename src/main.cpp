@@ -22,8 +22,6 @@ Game of Life implemented with a choice of several multithreading techniques
 /** Parse command line arguments and start the application */
 int main(int argc, char* argv[])
 {
-    using Mode = gol::Mode;
-
     // Runtime parameters and defaults
     Mode   mode    = Mode::Threads;
     bool   no_gui  = false;

@@ -7,6 +7,9 @@ AlignConsecutiveBitFields:
 AlignConsecutiveDeclarations:
   Enabled: true
 AllowShortEnumsOnASingleLine: true
+AllowShortLambdasOnASingleLine: true
+CompactNamespaces: true
+FixNamespaceComments: true
 BreakBeforeBraces: Stroustrup
 ColumnLimit: 0
 InsertBraces: true

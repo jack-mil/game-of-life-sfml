@@ -14,14 +14,12 @@ Control the SFML OS window and display the Game of Life simulation on the screen
 #include "Life.hpp"
 #include "Mode.hpp"
 
-using Mode = gol::Mode;
-
 App::App(size_t width, size_t height, size_t cellSize, Mode mode, uint threads, bool no_gui)
-    : m_mode{mode},
-      m_life{width / cellSize, height / cellSize, mode, threads},
+    : m_life{width / cellSize, height / cellSize, mode, threads},
+      m_cellSprite{sf::Vector2f(cellSize, cellSize)},
+      m_mode{mode},
       m_threads{threads},
-      m_no_gui{no_gui},
-      m_cellSprite{sf::Vector2f(cellSize, cellSize)}
+      m_no_gui{no_gui}
 {
     if (!no_gui) {
         setupWindow(width, height);
@@ -96,19 +94,24 @@ void App::run()
 /** Display timing information for each mode */
 void App::printTimings(sf::Time elapsed)
 {
-    switch (m_mode) {
+    switch (m_mode) { // clang-format off
     case Mode::Sequential:
-        std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with a single thread." << '\n';
+        std::cout << "100 generation took " 
+                  << elapsed.asMicroseconds() << " μs with a single thread." << '\n';
         break;
     case Mode::Threads:
-        std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with " << m_threads << " std::threads." << '\n';
+        std::cout << "100 generation took " 
+                  << elapsed.asMicroseconds() << " μs with " 
+                  << m_threads << " std::threads." << '\n';
         break;
     case Mode::OpenMP:
-        std::cout << "100 generation took " << elapsed.asMicroseconds() << " μs with " << m_threads << " OMP threads." << '\n';
+        std::cout << "100 generation took " 
+                  << elapsed.asMicroseconds() << " μs with " 
+                  << m_threads << " OMP threads." << '\n';
         break;
-    }
-    // Reset timer
-    elapsed = sf::Time::Zero;
+    } // clang-format on
+
+    elapsed = sf::Time::Zero; // Reset timer
 }
 
 /** Process events to close the window or reset the game */

@@ -13,11 +13,7 @@ should display or print the Life world
 #include <utility> // std::pair
 #include <vector>  // std::vector
 
-
-
 #include "Mode.hpp"
-
-using Mode = gol::Mode;
 
 using Alive = unsigned char;
 
@@ -25,7 +21,9 @@ using Alive = unsigned char;
 using Grid = std::vector<Alive>;
 
 // forward declare thead pooling type
-namespace task_thread_pool {class task_thread_pool;};
+namespace task_thread_pool {
+class task_thread_pool;
+};
 
 class Life {
   public:
@@ -39,7 +37,7 @@ class Life {
      * @param threads number of threads for multithreaded modes (default 8)
      * @param mode parallelism to use (default none)
      */
-    Life(size_t rows, size_t cols, Mode mode = Mode::Sequential, uint threads = 8 );
+    Life(size_t rows, size_t cols, Mode mode = Mode::Sequential, uint threads = 8);
     Life() = delete; // no default constructor
     ~Life();
 
@@ -81,12 +79,12 @@ class Life {
     const size_t m_height;
 
     /** Parallelization technique to use */
-    const gol::Mode m_mode;
+    const Mode m_mode;
 
     /** Number of threads to use for multithreading modes */
     const uint m_threads;
 
-    const size_t m_chunkSize; 
+    const size_t m_chunkSize;
 
     /** Thread pool setup only if using std::thread pooling mode */
     task_thread_pool::task_thread_pool* m_pool_ptr = nullptr;
