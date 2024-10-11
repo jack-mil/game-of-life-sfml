@@ -21,7 +21,7 @@ and at Life.cpp for the nitty-gritty Life implementation
 
 // Command line argument parsing
 // https://github.com/muellan/clipp
-#include <clipp.h>
+#include <clipp.hpp>
 
 #include "App.hpp" // App, Mode
 
