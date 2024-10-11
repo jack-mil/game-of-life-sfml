@@ -6,6 +6,12 @@ Last Date Modified: 2024-10-10
 Description:
 -- Lab 2 --
 Game of Life implemented with a choice of several multithreading techniques
+
+Utilizes command line argument parsing with a third-party library
+(ain't no way I'm implementing that myself (hard))
+
+Look at App.cpp for the window/graphics/game loop stuff
+and at Life.cpp for the nitty-gritty Life implementation
 */
 
 #include <iostream>
@@ -17,7 +23,7 @@ Game of Life implemented with a choice of several multithreading techniques
 // https://github.com/muellan/clipp
 #include <clipp.h>
 
-#include "App.hpp"
+#include "App.hpp" // App, Mode
 
 /** Parse command line arguments and start the application */
 int main(int argc, char* argv[])

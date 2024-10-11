@@ -16,6 +16,7 @@ Implementation of Game of Life rules. Does not display the simulated world.
 #include <task-thread-pool.hpp>
 
 #include "Life.hpp"
+#include "Mode.hpp"
 
 /** Only constructor for Life class */
 Life::Life(size_t rows, size_t cols, Mode mode, uint threads)

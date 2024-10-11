@@ -1,9 +1,23 @@
+/*
+Author: Jackson Miller
+Class: ECE6122 A
+Last Date Modified: 2024-10-10
+
+Description:
+Controls the application window and game loop.
+Draws living Game of Life cellular automata as
+SFML objects in a 2D graphics environment.
+
+Create an App object by specifying the runtime properties,
+and execute App::run() to start the application loop.
+*/
+
 #pragma once
 
 #include <SFML/Graphics.hpp>
 
-#include "Life.hpp"
-#include "Mode.hpp"
+#include "Life.hpp"   // Life class
+#include "Mode.hpp"   // Mode enum
 
 class App {
   public:
@@ -44,7 +58,7 @@ class App {
     /** Drawable to represent a living cell */
     sf::RectangleShape m_cellSprite;
 
-    /** mode this application is running in */
+    /** Mode this application is running in */
     const Mode m_mode;
 
     /** Number of threads to use in OMP or THRD mode */

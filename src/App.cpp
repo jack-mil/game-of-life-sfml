@@ -10,9 +10,10 @@ Control the SFML OS window and display the Game of Life simulation on the screen
 
 #include <SFML/Graphics.hpp>
 
+#include "Life.hpp" // Game of Life simulator
+#include "Mode.hpp" // Operating mode enum
+
 #include "App.hpp"
-#include "Life.hpp"
-#include "Mode.hpp"
 
 App::App(size_t width, size_t height, size_t cellSize, Mode mode, uint threads, bool no_gui)
     : m_life{width / cellSize, height / cellSize, mode, threads},
@@ -20,16 +21,23 @@ App::App(size_t width, size_t height, size_t cellSize, Mode mode, uint threads, 
       m_mode{mode},
       m_threads{threads},
       m_no_gui{no_gui}
-{
+{   
+    // Only do SFML stuff if running in "GUI" mode
     if (!no_gui) {
         setupWindow(width, height);
         m_cellSprite.setFillColor(sf::Color::White);
     }
 
-    // imbue a locale to force comma seperated values (non-portable)
+    // imbue locale (shows numbers with commas, as configured by user's OS)
     std::cout.imbue(std::locale(""));
 }
 
+/** 
+ * Create and position the OS window with a given width and height (in pixels)
+ * 
+ * @param width horizontal size
+ * @param height vertical size
+ */
 void App::setupWindow(size_t width, size_t height)
 {
     m_window.create(sf::VideoMode(width, height), "Game of Life - Jackson Miller - ECE6122");
@@ -54,13 +62,14 @@ void App::run()
 
     long int iterations = 0;
 
-    while (m_window.isOpen() || m_no_gui) {
+    while (m_window.isOpen() || m_no_gui) { 
 
         // Simulate the next generation,
         // and time how long it takes with the current mode
-        timer.restart();
-        m_life.doOneGeneration();
-        elapsed += timer.restart();
+
+        timer.restart();            // timer start
+        m_life.doOneGeneration();   // generate Life
+        elapsed += timer.restart(); // timer end
 
         // every 100 iterations, print timing and reset time measurement
         iterations++;
@@ -78,6 +87,7 @@ void App::run()
         if (m_no_gui) {
             continue;
         }
+
         handleEvents();
 
         // Clear the window (old frame)
@@ -89,6 +99,8 @@ void App::run()
         // Display the new frame
         m_window.display();
     }
+    
+    // Window is closed, time to quit
 }
 
 /** Display timing information for each mode */
@@ -97,17 +109,18 @@ void App::printTimings(sf::Time elapsed)
     switch (m_mode) { // clang-format off
     case Mode::Sequential:
         std::cout << "100 generation took " 
-                  << elapsed.asMicroseconds() << " μs with a single thread." << '\n';
+                  << elapsed.asMicroseconds() 
+                  << " μs with a single thread." << '\n';
         break;
     case Mode::Threads:
         std::cout << "100 generation took " 
-                  << elapsed.asMicroseconds() << " μs with " 
-                  << m_threads << " std::threads." << '\n';
+                  << elapsed.asMicroseconds() 
+                  << " μs with " << m_threads << " std::threads." << '\n';
         break;
     case Mode::OpenMP:
         std::cout << "100 generation took " 
-                  << elapsed.asMicroseconds() << " μs with " 
-                  << m_threads << " OMP threads." << '\n';
+                  << elapsed.asMicroseconds() 
+                  << " μs with " << m_threads << " OMP threads." << '\n';
         break;
     } // clang-format on
 
@@ -119,10 +132,10 @@ void App::handleEvents()
 {
     static sf::Event event;
     while (m_window.pollEvent(event)) {
-        if (event.type == sf::Event::Closed) {
+        if (event.type == sf::Event::Closed) { // close with 'X' button
             m_window.close();
         }
-        else if (event.type == sf::Event::KeyPressed) {
+        else if (event.type == sf::Event::KeyPressed) { // close with ESC or ENTER
             if (event.key.code == sf::Keyboard::Escape || event.key.code == sf::Keyboard::Return) {
                 m_window.close();
             }
@@ -133,9 +146,9 @@ void App::handleEvents()
 /** Draw every living cell as a white SFML rectangle sprite */
 void App::drawLife()
 {
-    const auto& size = m_cellSprite.getSize();
+    static const auto& size = m_cellSprite.getSize();
 
-    // Draw only the living cells at the (row,col) (pair<int,int>)
+    // Draw only the living cells at (row, col) (pair<int,int>)
     for (const auto& [row, col] : m_life.getLiveCells()) {
         // Draw the same sprite object at many positions
         m_cellSprite.setPosition(row * size.x, col * size.y);
