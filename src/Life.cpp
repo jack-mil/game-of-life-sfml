@@ -1,7 +1,7 @@
 /*
 Author: Jackson Miller
 Class: ECE6122 A
-Last Date Modified: 2024-10-09
+Last Date Modified: 2024-10-10
 
 Description:
 Implementation of Game of Life rules. Does not display the simulated world.

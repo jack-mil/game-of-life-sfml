@@ -1,7 +1,7 @@
 /*
 Author: Jackson Miller
 Class: ECE6122 A
-Last Date Modified: 2024-10-09
+Last Date Modified: 2024-10-10
 
 Description:
 Control the SFML OS window and display the Game of Life simulation on the screen

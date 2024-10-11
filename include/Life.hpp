@@ -1,13 +1,14 @@
 /*
 Author: Jackson Miller
 Class: ECE6122 A
-Last Date Modified: 2024-10-09
+Last Date Modified: 2024-10-10
 
 Description:
 An implementation of the Game of Life rules.
 Tries to be display-method agnostic, something else
 should display or print the Life world
 */
+
 #pragma once
 
 #include <utility> // std::pair
