@@ -4,6 +4,13 @@ cmake_minimum_required(VERSION 3.26)
 # Project Name (Game Of Life)
 project(gol)
 
+# Build for release if not specified
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
 # Link to SFML statically
 set(BUILD_SHARED_LIBS FALSE)
 # Disable building audio
@@ -49,13 +56,6 @@ endif()
 # require c++20 features
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 
-
 # enable compiler warnings
-target_compile_options(${PROJECT_NAME} PRIVATE
-                                        -Wall
-                                        # -Wsign-conversion
-                                        # -Wconversion
-                                        -Wextra
-                                        -Werror
-                                        -pedantic
-                                        -pedantic-errors)
+set(DEBUG_OPTIONS -Wall -Wextra -Werror -pedantic -pedantic-errors)
+target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:DEBUG>:${DEBUG_OPTIONS}>")

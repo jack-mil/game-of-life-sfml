@@ -61,6 +61,9 @@ class Life {
     /** Get the state of a current cell */
     State getCell(size_t row, size_t col) const;
 
+    /** Optimized method for wrapping around edges */
+    State getCellWrap(long row, long col) const;
+
     /** Set the state for next iteration */
     void setCell(size_t row, size_t col, State state);
 

@@ -204,20 +204,24 @@ inline Life::State Life::simulateSingleCell(size_t row, size_t col) const
  */
 inline int Life::countNeighbors(size_t row, size_t col) const
 {
-    int count = 0;
-    // This probably gets unrolled
-    for (int i = -1; i <= 1; ++i) {
-        for (int j = -1; j <= 1; ++j) {
-            // skip checking the center cell
-            if (i || j) [[likely]] {
-                size_t nrow = (row + i + m_height) % m_height;
-                size_t ncol = (col + j + m_width) % m_width;
+    int live_count = 0;
 
-                count += static_cast<int>(this->getCell(nrow, ncol)); // interpret Alive as 1/0
-            }
-        }
-    }
-    return count;
+    const long row_s = static_cast<long>(row);
+    const long col_s = static_cast<long>(col);
+
+    // Compile-time casts required for Enum -> int conversion
+    live_count += static_cast<int>(this->getCellWrap(row_s + 1, col_s - 1)); // top-left
+    live_count += static_cast<int>(this->getCellWrap(row_s + 1, col_s));     // top
+    live_count += static_cast<int>(this->getCellWrap(row_s + 1, col_s + 1)); // top-right
+
+    live_count += static_cast<int>(this->getCellWrap(row_s, col_s - 1)); // left
+    live_count += static_cast<int>(this->getCellWrap(row_s, col_s + 1)); // right
+
+    live_count += static_cast<int>(this->getCellWrap(row_s - 1, col_s - 1)); // bottom-left
+    live_count += static_cast<int>(this->getCellWrap(row_s - 1, col_s));     // bottom
+    live_count += static_cast<int>(this->getCellWrap(row_s - 1, col_s + 1)); // bottom right
+
+    return live_count;
 }
 
 /**
@@ -226,7 +230,34 @@ inline int Life::countNeighbors(size_t row, size_t col) const
  */
 inline Life::State Life::getCell(size_t row, size_t col) const
 {
-    return m_bfr_current.at(row * m_width + col);
+    return m_bfr_current[row * m_width + col];
+}
+
+/**
+ * Convert row,col specifier to the 1D vector access
+ * Reads from current state. Allows negative or overflow values to wrap around.
+ * This has been optimized specifically for the countNeighbors operation,
+ * after checking performance counting.
+ */
+inline Life::State Life::getCellWrap(long row, long col) const
+{
+    // row = (row + m_height) % m_height;
+    // col = (col + m_width) % m_width;
+    // branches were faster than modulo arithmetic
+    // guessing branch prediction does wonders here
+    if (row < 0) [[unlikely]] {
+        row = m_height;
+    };
+    if (col < 0) [[unlikely]] {
+        col = m_width;
+    };
+    if (row > static_cast<long>(m_height) - 1) [[unlikely]] {
+        row = 0;
+    };
+    if (col > static_cast<long>(m_width) - 1) [[unlikely]] {
+        col = 0;
+    };
+    return m_bfr_current[row * m_width + col];
 }
 
 /**
@@ -235,5 +266,5 @@ inline Life::State Life::getCell(size_t row, size_t col) const
  * */
 inline void Life::setCell(size_t row, size_t col, State state)
 {
-    m_bfr_next.at(row * m_width + col) = state;
+    m_bfr_next[row * m_width + col] = state;
 }
