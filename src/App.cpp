@@ -59,7 +59,7 @@ void App::run()
         // Simulate the next generation,
         // and time how long it takes with the current mode
         timer.restart();
-        m_life.updateLife();
+        m_life.doOneGeneration();
         elapsed += timer.restart();
 
         // every 100 iterations, print timing and reset time measurement
