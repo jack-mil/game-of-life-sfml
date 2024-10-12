@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
                     .doc_column(31)
                     .max_flags_per_param_in_usage(4);
 
-        std::cout << "ECE 6122 Lab 2\n\n"
+        std::cout << "ECE 6122 Lab 2 -- Jackson Miller -- 10/10/2024\n\n"
                     << "Usage:\n"
                     << usage_lines(cli, argv[0], fmt)
                     << "\n\nOptions:\n"
