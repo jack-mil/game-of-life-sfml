@@ -34,10 +34,17 @@ class Life {
      * @param threads number of threads for multithreaded modes (default 8)
      */
     Life(size_t rows, size_t cols, Mode mode = Mode::Sequential, uint threads = 8);
-    Life() = delete; // no default constructor
 
     /** Destructor cleans up thead pool (if used) */
     ~Life();
+
+    /** Disabling moving and copy to follow the 'Rule of Five', and because I don't need it
+     * see §C21 of: https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines
+     */
+    Life(const Life&)                = delete; // no copy constructor
+    Life(Life&&) noexcept            = delete; // no move constructor
+    Life& operator=(const Life&)     = delete; // no copy assignment
+    Life& operator=(Life&&) noexcept = delete; // no move assignment
 
     /** Run a single iteration of the Rules on the current state */
     void doOneGeneration();
@@ -49,10 +56,13 @@ class Life {
     std::vector<std::pair<int, int>> getLiveCells() const;
 
   private:
-    /** Internal representation of a cell. */
+    /** 
+     * Internal representation of a cell.
+     * Can be safely cast to numeric type for counting living cells.
+     */
     enum class State : char { Alive = 1, Dead  = 0 };
 
-    // Type alias to save space
+    /** Type alias to save space */
     using Grid = std::vector<State>;
 
     /** Setup initial random state */
@@ -87,7 +97,7 @@ class Life {
 
     /** Number of cell rows */
     const size_t m_height;
-    
+
     /** Number of cell columns */
     const size_t m_width;
 
