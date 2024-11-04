@@ -16,11 +16,6 @@ should display or print the Life world
 
 #include "Mode.hpp"
 
-// forward declare thead pooling type
-namespace task_thread_pool {
-class task_thread_pool;
-};
-
 class Life {
   public:
     /** Create a new Game of Life simulation with a random starting state.
@@ -30,21 +25,11 @@ class Life {
      *
      * @param rows number of rows in the universe
      * @param cols number of cols in the universe
-     * @param mode parallelism to use (default none)
-     * @param threads number of threads for multithreaded modes (default 8)
+     * @param mode CUDA memory copy mode to use (default Normal)
+     * @param threads number of CUDA threads (default 32)
      */
-    Life(size_t rows, size_t cols, Mode mode = Mode::Sequential, uint threads = 8);
+    Life(size_t rows, size_t cols, Mode mode = Mode::Normal, uint threads = 32);
 
-    /** Destructor cleans up thead pool (if used) */
-    ~Life();
-
-    /** Disabling moving and copy to follow the 'Rule of Five', and because I don't need it
-     * see §C21 of: https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines
-     */
-    Life(const Life&)                = delete; // no copy constructor
-    Life(Life&&) noexcept            = delete; // no move constructor
-    Life& operator=(const Life&)     = delete; // no copy assignment
-    Life& operator=(Life&&) noexcept = delete; // no move assignment
 
     /** Run a single iteration of the Rules on the current state */
     void doOneGeneration();
@@ -77,14 +62,11 @@ class Life {
     /** Set the state for next iteration */
     void setCell(size_t row, size_t col, State state);
 
-    /** Run Game of Life with no multithreading */
-    void updateGridSEQ();
+    void updateCudaManaged();
+    
+    void updateCudaPinned();
 
-    /** Run Game of Life using OpenMP threading */
-    void updateGridOMP();
-
-    /** Run Game of Life using std::thread pooling */
-    void updateGridThreads();
+    void updateCudaNormal();
 
     /** Actual looping through the grid, used by above methods */
     void process_chunk(size_t start_row, size_t end_row);
@@ -109,9 +91,6 @@ class Life {
 
     /** Number of rows to process per thread in std::thread pooling mode */
     const size_t m_chunkSize;
-
-    /** std::thread pool. Created only if using std::thread pooling mode */
-    task_thread_pool::task_thread_pool* m_pool_ptr = nullptr;
 
     /** Buffer with current state */
     Grid m_bfr_current;

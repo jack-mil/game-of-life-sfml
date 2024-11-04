@@ -23,18 +23,19 @@ and at Life.cpp for the nitty-gritty Life implementation
 // https://github.com/muellan/clipp
 #include <clipp.hpp>
 
-#include "App.hpp" // App, Mode
+#include "App.hpp"  // App class
+#include "Mode.hpp" // Mode enum
 
 /** Parse command line arguments and start the application */
 int main(int argc, char* argv[])
 {
     // Runtime parameters and defaults
-    Mode   mode    = Mode::Threads;
-    bool   no_gui  = false;
-    uint   threads = 8;
-    size_t size    = 5;
-    size_t width   = 800;
-    size_t height  = 600;
+    Mode   mode    = Mode::Normal;
+    bool   no_gui  = false; // don't launch the SFML window (for debugging)
+    uint   threads = 32;    // number of cuda threads (multiple of 32)
+    size_t size    = 5;     // size in pixels of a cell square
+    size_t width   = 800;   // window width in pixels
+    size_t height  = 600;   // window height in pixels
 
     { // clang-format off
 
@@ -47,11 +48,11 @@ int main(int argc, char* argv[])
         (option("-x", "--width" )  & integer("WIDTH" ).set(width )).doc("Width of the window (default=" + to_string(width)          + ")" ),
         (option("-y", "--height")  & integer("HEIGHT").set(height)).doc("Height of the window (default=" + to_string(height)        + ")" ),
         (option("-c", "--size")    & integer("SIZE"  ).set(size  )).doc("Size in pixels of each cell (default=" + to_string(size)   + ")" ),
-        (option("-n", "--threads") & integer("COUNT" ).set(threads)).doc("How many threads to use (>2) (default=" + to_string(threads) + ")" ),
+        (option("-n", "--threads") & integer("COUNT" ).set(threads)).doc("How many CUDA threads to use (multiple of 32) (default=" + to_string(threads) + ")" ),
         (option("-t", "--mode")    & one_of(
-                                    required("SEQ" ).set(mode, Mode::Sequential),
-                                    required("THRD").set(mode, Mode::Threads),
-                                    required("OMP" ).set(mode, Mode::OpenMP) ) ).doc("Type of parallelism to use (default: std::thread)"),
+                                    required("NORMAL" ).set(mode, Mode::Normal),
+                                    required("PINNED").set(mode, Mode::Pinned),
+                                    required("MANAGED" ).set(mode, Mode::Managed) ) ).doc("Type of CUDA memory to use (default: Normal)"),
         option("-d","--no-gui").set(no_gui).doc("Only run performance timings.")
     );
 
@@ -63,7 +64,7 @@ int main(int argc, char* argv[])
                     .doc_column(31)
                     .max_flags_per_param_in_usage(4);
 
-        std::cout << "ECE 6122 Lab 2 -- Jackson Miller -- 10/10/2024\n\n"
+        std::cout << "ECE 6122 Lab 4 -- Jackson Miller -- 2024-11-8\n\n"
                     << "Usage:\n"
                     << usage_lines(cli, argv[0], fmt)
                     << "\n\nOptions:\n"

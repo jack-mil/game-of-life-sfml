@@ -26,11 +26,13 @@ class App {
      *
      * @param width width of the application window (px)
      * @param height height of the application window (px)
-     * @param mode what type of parallelization to use
+     * @param mode CUDA memory copy mode to use (default Normal)
+     * @param threads number of CUDA threads (default 32)
+     * @param no_gui run without opening and rendering a SFML window (default false)
      */
     App(size_t width, size_t height, size_t cellSize,
-        Mode mode    = Mode::Sequential,
-        uint threads = 8u,
+        Mode mode    = Mode::Normal,
+        uint threads = 32u,
         bool no_gui  = false);
 
     /** Entrypoint to game loop. Call this to start the application */
@@ -58,10 +60,10 @@ class App {
     /** Drawable to represent a living cell */
     sf::RectangleShape m_cellSprite;
 
-    /** Mode this application is running in */
+    /** CUDA memory copy mode to use */
     const Mode m_mode;
 
-    /** Number of threads to use in OMP or THRD mode */
+    /** Number of CUDA threads to use */
     const uint m_threads;
 
     /** Whether a window should be displayed, or just print the processing timings */

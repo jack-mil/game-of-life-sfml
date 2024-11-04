@@ -9,12 +9,6 @@ Implementation of Game of Life rules. Does not display the simulated world.
 
 #include <random>
 
-#include <omp.h>
-
-// Simple thread pooling implementation
-// https://github.com/alugowski/task-thread-pool
-#include <task-thread-pool.hpp>
-
 #include "Life.hpp"
 #include "Mode.hpp"
 
@@ -22,7 +16,7 @@ Implementation of Game of Life rules. Does not display the simulated world.
 Life::Life(size_t rows, size_t cols, Mode mode, uint threads)
     : m_height(rows),                          // height in cells
       m_width(cols),                           // width in cells
-      m_mode{mode},                            // Mode enum specifies the multi-threading technique
+      m_mode{mode},                            // Mode enum specifies the Cuda memory copy technique
       m_threads{threads},                      // save number of std::threads as member
       m_chunkSize{m_height / threads},         // Chunk size for std::thread pooling
       m_bfr_current(rows * cols, State::Dead), // allocate grid buffers with dead cells
@@ -31,18 +25,6 @@ Life::Life(size_t rows, size_t cols, Mode mode, uint threads)
 
     // Start with a random initial state
     this->seedRandom();
-
-    // create thread pool if using that mode
-    if (m_mode == Mode::Threads) {
-        m_pool_ptr = new task_thread_pool::task_thread_pool{threads};
-    }
-}
-
-/** Destructor cleans up thread pool (if used) */
-Life::~Life()
-{
-    // Call destructor to stop threads, and cleanup pool object
-    delete m_pool_ptr;
 }
 
 /**
@@ -66,14 +48,14 @@ void Life::doOneGeneration()
 {
     // Pick an implementation
     switch (m_mode) {
-    case Mode::Sequential:
-        this->updateGridSEQ();
+    case Mode::Normal:
+        this->updateCudaNormal();
         break;
-    case Mode::OpenMP:
-        this->updateGridOMP();
+    case Mode::Managed:
+        this->updateCudaManaged();
         break;
-    case Mode::Threads:
-        this->updateGridThreads();
+    case Mode::Pinned:
+        this->updateCudaPinned();
         break;
     }
 
@@ -99,55 +81,15 @@ std::vector<std::pair<int, int>> Life::getLiveCells() const
     return liveCells;
 }
 
-/**
- * Calculate one tick of evolution, according to the classic Game of Life rules
- * Writes the new state to an internal buffer
- *
- * Does not use any multithreading
- */
-void Life::updateGridSEQ()
+void Life::updateCudaManaged()
 {
-    process_chunk(0, m_height);
 }
-
-/**
- * Calculate one tick of evolution, according to the classic Game of Life rules
- * Writes the new state to an internal buffer
- *
- * Uses OpenMP parallelism
- */
-void Life::updateGridOMP()
+void Life::updateCudaNormal()
 {
-    // This has to be called just before a omp parallel region
-    // I don't know how OMP handles this function being called in a loop...
-    // Does it pool the threads? Hopefully. I had to duplicate the for loop code as well...
-    omp_set_num_threads(m_threads);
-#pragma omp parallel for schedule(static)
-    for (size_t row = 0; row < m_height; ++row) {
-        for (size_t col = 0; col < m_width; ++col) {
-            const auto& state = this->simulateSingleCell(row, col);
-            this->setCell(row, col, state);
-        }
-    }
 }
-
-/**
- * Calculate one tick of evolution, according to the classic Game of Life rules
- * Writes the new state to an internal buffer
- *
- * Uses a pool of std::threads
- */
-void Life::updateGridThreads()
+void Life::updateCudaPinned()
 {
-    // split the rows into several chunks, and dispatch threads to handle each section
-    for (size_t start = 0; start < m_height; start += m_chunkSize) {
-
-        m_pool_ptr->submit_detach(&Life::process_chunk, this, start, start + m_chunkSize);
-    }
-
-    m_pool_ptr->wait_for_tasks();
 }
-
 /**
  * Run the game of life rules for the specified rows
  * @param start_row first row to process

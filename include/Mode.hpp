@@ -7,5 +7,5 @@ Description:
 Just a simple enum used in all files. Put here to prevent dependency loops
 */
 #pragma once
-/** Represent the possible application modes */
-enum class Mode { Sequential, Threads, OpenMP };
+/** Represent the possible CUDA memory modes */
+enum class Mode { Normal, Pinned, Managed };

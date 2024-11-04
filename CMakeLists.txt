@@ -46,13 +46,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE include/)
 # link dependency libraries (static SFML)
 target_link_libraries(${PROJECT_NAME} PRIVATE third-party sfml-graphics)
 
-# Find OpenMP
-find_package(OpenMP REQUIRED)
-# Link OpenMP libraries
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
-endif()
-
 # require c++20 features
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 

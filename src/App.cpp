@@ -40,7 +40,7 @@ App::App(size_t width, size_t height, size_t cellSize, Mode mode, uint threads, 
  */
 void App::setupWindow(size_t width, size_t height)
 {
-    m_window.create(sf::VideoMode(width, height), "Game of Life - Jackson Miller - ECE6122");
+    m_window.create(sf::VideoMode(width, height), "Game of Life CUDA - Jackson Miller - ECE6122");
 
     // set some OS window options
     m_window.setMouseCursorVisible(false);
@@ -107,20 +107,23 @@ void App::run()
 void App::printTimings(sf::Time elapsed)
 {
     switch (m_mode) { // clang-format off
-    case Mode::Sequential:
+    case Mode::Normal:
         std::cout << "100 generation took " 
                   << elapsed.asMicroseconds() 
-                  << " μs with a single thread." << '\n';
+                  << " μs with " << m_threads << " threads per block" 
+                  << " using Normal memory allocation.\n";
         break;
-    case Mode::Threads:
+    case Mode::Managed:
         std::cout << "100 generation took " 
                   << elapsed.asMicroseconds() 
-                  << " μs with " << m_threads << " std::threads." << '\n';
+                  << " μs with " << m_threads << " threads per block" 
+                  << " using Managed memory allocation.\n";
         break;
-    case Mode::OpenMP:
+    case Mode::Pinned:
         std::cout << "100 generation took " 
                   << elapsed.asMicroseconds() 
-                  << " μs with " << m_threads << " OMP threads." << '\n';
+                  << " μs with " << m_threads << " threads per block"
+                  << " using Pinned memory allocation.\n";
         break;
     } // clang-format on
 
