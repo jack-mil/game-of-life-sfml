@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.26)
 
 # Project Name (Game Of Life)
-project(gol)
+project(gol LANGUAGES CXX CUDA)
 
 # Build for release if not specified
 if(NOT CMAKE_BUILD_TYPE)
@@ -37,7 +37,7 @@ target_include_directories(third-party SYSTEM INTERFACE "third-party/")
 add_executable(${PROJECT_NAME}
                 src/main.cpp 
                 src/App.cpp 
-                src/Life.cpp
+                src/Life.cu
 )
 
 # Include my headers
@@ -49,6 +49,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE third-party sfml-graphics)
 # require c++20 features
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 
-# enable compiler warnings
-set(DEBUG_OPTIONS -Wall -Wextra -Werror -pedantic -pedantic-errors)
-target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:DEBUG>:${DEBUG_OPTIONS}>")
+# enable compiler  for debug configurations
+# set(DEBUG_OPTIONS -Wall -Wextra -Werror -pedantic -pedantic-errors)
+# target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:DEBUG>:${DEBUG_OPTIONS}>")

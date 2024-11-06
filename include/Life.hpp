@@ -21,12 +21,12 @@ class Life {
     /** Create a new Game of Life simulation with a random starting state.
      *
      * The universe wraps edges in a toroidal shape.
-     * Specify mode to enable multithreading techniques.
+     * The Life class uses CUDA processing in various modes
      *
      * @param rows number of rows in the universe
      * @param cols number of cols in the universe
      * @param mode CUDA memory copy mode to use (default Normal)
-     * @param threads number of CUDA threads (default 32)
+     * @param threads number of CUDA threads per block (default 32)
      */
     Life(size_t rows, size_t cols, Mode mode = Mode::Normal, uint threads = 32);
 

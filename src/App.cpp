@@ -25,7 +25,6 @@ App::App(size_t width, size_t height, size_t cellSize, Mode mode, uint threads, 
     // Only do SFML stuff if running in "GUI" mode
     if (!no_gui) {
         setupWindow(width, height);
-        m_cellSprite.setFillColor(sf::Color::White);
     }
 
     // imbue locale (shows numbers with commas, as configured by user's OS)

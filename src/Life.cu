@@ -9,8 +9,11 @@ Implementation of Game of Life rules. Does not display the simulated world.
 
 #include <random>
 
+#include <cuda_runtime.h>
+
 #include "Life.hpp"
 #include "Mode.hpp"
+#include "helper_cuda.cuh"
 
 /** Only constructor for Life class */
 Life::Life(size_t rows, size_t cols, Mode mode, uint threads)
@@ -25,6 +28,22 @@ Life::Life(size_t rows, size_t cols, Mode mode, uint threads)
 
     // Start with a random initial state
     this->seedRandom();
+
+    int devID = findCudaDevice();
+
+    cudaDeviceProp deviceProp;
+    checkCudaErrors(cudaGetDeviceProperties(&deviceProp, devID));
+
+    if (!deviceProp.managedMemory) {
+        // Game of life requires being run on a device that supports Unified Memory
+        fprintf(stderr, "Unified Memory not supported on this device\n");
+        exit(EXIT_WAIVED);
+    }
+
+    // Statistics about the GPU device
+    printf(
+        "> GPU device has %d Multi-Processors, SM %d.%d compute capabilities\n\n",
+        deviceProp.multiProcessorCount, deviceProp.major, deviceProp.minor);
 }
 
 /**
@@ -81,10 +100,17 @@ std::vector<std::pair<int, int>> Life::getLiveCells() const
     return liveCells;
 }
 
-void Life::updateCudaManaged()
-{
-}
 void Life::updateCudaNormal()
+{
+    // copy host array (vector) to device
+    // d_bfr_current, m_bfr_current.data(), m_bfr_current.size(),
+    // execute kernel
+    // synchronize
+    // copy memory back to device
+
+    // ready to be used here, by getLiveCells
+}
+void Life::updateCudaManaged()
 {
 }
 void Life::updateCudaPinned()
