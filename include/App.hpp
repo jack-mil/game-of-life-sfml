@@ -16,7 +16,7 @@ and execute App::run() to start the application loop.
 
 #include <SFML/Graphics.hpp>
 
-#include "Life.hpp"   // Life class
+#include "Life.cuh"   // Life class
 #include "Mode.hpp"   // Mode enum
 
 class App {

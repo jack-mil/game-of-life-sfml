@@ -10,7 +10,7 @@ Control the SFML OS window and display the Game of Life simulation on the screen
 
 #include <SFML/Graphics.hpp>
 
-#include "Life.hpp" // Game of Life simulator
+#include "Life.cuh" // Game of Life simulator
 #include "Mode.hpp" // Operating mode enum
 
 #include "App.hpp"

@@ -1,5 +1,5 @@
-# Minimum CMake version required
-cmake_minimum_required(VERSION 3.26)
+# required for fetchcontent
+cmake_minimum_required(VERSION 3.26) 
 
 # Project Name (Game Of Life)
 project(gol LANGUAGES CXX CUDA)

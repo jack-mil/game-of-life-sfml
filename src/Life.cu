@@ -11,9 +11,10 @@ Implementation of Game of Life rules. Does not display the simulated world.
 
 #include <cuda_runtime.h>
 
-#include "Life.hpp"
+#include "Life.cuh"
 #include "Mode.hpp"
 #include "helper_cuda.cuh"
+#include <cassert>
 
 /** Only constructor for Life class */
 Life::Life(size_t rows, size_t cols, Mode mode, uint threads)
@@ -25,9 +26,6 @@ Life::Life(size_t rows, size_t cols, Mode mode, uint threads)
       m_bfr_current(rows * cols, State::Dead), // allocate grid buffers with dead cells
       m_bfr_next(rows * cols, State::Dead)     // second buffer
 {
-
-    // Start with a random initial state
-    this->seedRandom();
 
     int devID = findCudaDevice();
 
@@ -44,6 +42,31 @@ Life::Life(size_t rows, size_t cols, Mode mode, uint threads)
     printf(
         "> GPU device has %d Multi-Processors, SM %d.%d compute capabilities\n\n",
         deviceProp.multiProcessorCount, deviceProp.major, deviceProp.minor);
+
+    assert(mode == Mode::Normal);
+
+    // Start with a random initial state
+    this->seedRandom();
+
+    // Allocte device memory (host already allocated as a vector<State>)
+    checkCudaErrors(cudaMalloc(&d_bfr_current, sizeof(State) * m_width * m_height));
+    checkCudaErrors(cudaMalloc(&d_bfr_next, sizeof(State) * m_height * m_width));
+
+    // calculate thread and block size
+    m_block_size = new dim3{threads, threads, 1};
+    uint linGrid = (uint)ceil(m_width + 2 / (float)threads);
+    m_grid_size  = new dim3{linGrid, linGrid, 1};
+}
+
+/** Destructor frees allocated memory */
+Life::~Life()
+{ // free heap data
+    delete m_grid_size;
+    delete m_block_size;
+
+    // free Cuda device memory
+    checkCudaErrors(cudaFree(d_bfr_current));
+    checkCudaErrors(cudaFree(d_bfr_next));
 }
 
 /**
@@ -80,7 +103,7 @@ void Life::doOneGeneration()
 
     // swap the std::vectors. This only swaps the underlying pointers,
     // not the contained data. Very cheap and fast (hopefully)
-    std::swap(m_bfr_current, m_bfr_next);
+    // std::swap(m_bfr_current, m_bfr_next);
 }
 
 /**
@@ -100,15 +123,44 @@ std::vector<std::pair<int, int>> Life::getLiveCells() const
     return liveCells;
 }
 
+__global__ void deviceOneGeneration(uint8_t* now, uint8_t* next, size_t width, size_t height)
+{
+    size_t iy = blockDim.y * blockIdx.y + threadIdx.y + 1;
+    size_t ix = blockDim.x * blockIdx.x + threadIdx.x + 1;
+    size_t id = iy * (width + 2) + ix;
+
+    int count = 0;
+    if (iy < height && ix < width) {
+        count = now[id + (height + 2)] +                          // Upper neighbor
+                now[id - (height + 2)] +                          // Lower neighbor
+                now[id + 1] +                                     // Right neighbor
+                now[id - 1] +                                     // Left neighbor
+                now[id + (height + 3)] + now[id - (height + 3)] + // Diagonal neighbors
+                now[id - (height + 1)] + now[id + (height + 1)];
+
+        // coerced into 1/0, TODO: maybe ok?
+        next[id] = (count == 3 || (count == 2 && now[id]));
+    }
+}
+
 void Life::updateCudaNormal()
 {
     // copy host array (vector) to device
-    // d_bfr_current, m_bfr_current.data(), m_bfr_current.size(),
+    checkCudaErrors(cudaMemcpy(d_bfr_current, m_bfr_current.data(),
+                               sizeof(State) * m_bfr_current.size(),
+                               cudaMemcpyHostToDevice));
     // execute kernel
-    // synchronize
-    // copy memory back to device
+    deviceOneGeneration<<<*m_grid_size, *m_block_size>>>((uint8_t*)d_bfr_current, (uint8_t*)d_bfr_next, m_width, m_height);
 
-    // ready to be used here, by getLiveCells
+    // copy memory back to device
+    checkCudaErrors(cudaDeviceSynchronize());
+    checkCudaErrors(cudaMemcpy(m_bfr_next.data(), d_bfr_next,
+                               sizeof(State) * m_bfr_next.size(),
+                               cudaMemcpyDeviceToHost));
+    // new gen stored in bfr_next
+    // swap the std::vectors. This only swaps the underlying pointers,
+    // not the contained data. Very cheap and fast (hopefully)
+    std::swap(m_bfr_current, m_bfr_next);
 }
 void Life::updateCudaManaged()
 {
@@ -116,6 +168,7 @@ void Life::updateCudaManaged()
 void Life::updateCudaPinned()
 {
 }
+
 /**
  * Run the game of life rules for the specified rows
  * @param start_row first row to process

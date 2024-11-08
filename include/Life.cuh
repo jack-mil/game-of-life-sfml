@@ -16,6 +16,9 @@ should display or print the Life world
 
 #include "Mode.hpp"
 
+/** forward declaration to avoid including cuda_runtime in this file. */
+struct dim3;
+
 class Life {
   public:
     /** Create a new Game of Life simulation with a random starting state.
@@ -29,7 +32,24 @@ class Life {
      * @param threads number of CUDA threads per block (default 32)
      */
     Life(size_t rows, size_t cols, Mode mode = Mode::Normal, uint threads = 32);
+    Life() = delete;
 
+    /** Destructor cleans up thead pool (if used) */
+    ~Life();
+
+    /** Disabling moving and copy to follow the 'Rule of Five', and because I don't need it
+     * see §C21 of: https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines
+     */
+    Life(const Life&)                = delete; // no copy constructor
+    Life(Life&&) noexcept            = delete; // no move constructor
+    Life& operator=(const Life&)     = delete; // no copy assignment
+    Life& operator=(Life&&) noexcept = delete; // no move assignment
+
+    /**
+     * Internal representation of a cell.
+     * Can be safely cast to numeric type for counting living cells.
+     */
+    enum class State : uint8_t { Alive = 1, Dead  = 0 };
 
     /** Run a single iteration of the Rules on the current state */
     void doOneGeneration();
@@ -41,12 +61,6 @@ class Life {
     std::vector<std::pair<int, int>> getLiveCells() const;
 
   private:
-    /** 
-     * Internal representation of a cell.
-     * Can be safely cast to numeric type for counting living cells.
-     */
-    enum class State : char { Alive = 1, Dead  = 0 };
-
     /** Type alias to save space */
     using Grid = std::vector<State>;
 
@@ -63,7 +77,7 @@ class Life {
     void setCell(size_t row, size_t col, State state);
 
     void updateCudaManaged();
-    
+
     void updateCudaPinned();
 
     void updateCudaNormal();
@@ -97,4 +111,10 @@ class Life {
 
     /** Next buffer to write to */
     Grid m_bfr_next;
+
+    State* d_bfr_current = nullptr;
+    State* d_bfr_next    = nullptr;
+
+    dim3* m_grid_size;
+    dim3* m_block_size;
 };
