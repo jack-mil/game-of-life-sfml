@@ -100,11 +100,10 @@ class Life {
     /** Parallelization technique to use */
     const Mode m_mode;
 
-    /** Number of threads to use for (both) multithreading modes */
-    const uint m_threads;
-
-    /** Number of rows to process per thread in std::thread pooling mode */
-    const size_t m_chunkSize;
+    /** Number of threads per block to use */
+    const size_t m_threads;
+    /** Number of blocks per grid to use */
+    const size_t m_blocks;
 
     /** Buffer with current state */
     Grid m_bfr_current;
@@ -115,6 +114,4 @@ class Life {
     State* d_bfr_current = nullptr;
     State* d_bfr_next    = nullptr;
 
-    dim3* m_grid_size;
-    dim3* m_block_size;
 };

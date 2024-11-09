@@ -16,15 +16,18 @@ Implementation of Game of Life rules. Does not display the simulated world.
 #include "helper_cuda.cuh"
 #include <cassert>
 
+size_t d_current_pitch; // width in bytes of allocation
+size_t d_next_pitch;    // width in bytes of allocation
+
 /** Only constructor for Life class */
 Life::Life(size_t rows, size_t cols, Mode mode, uint threads)
-    : m_height(rows),                          // height in cells
-      m_width(cols),                           // width in cells
-      m_mode{mode},                            // Mode enum specifies the Cuda memory copy technique
-      m_threads{threads},                      // save number of std::threads as member
-      m_chunkSize{m_height / threads},         // Chunk size for std::thread pooling
-      m_bfr_current(rows * cols, State::Dead), // allocate grid buffers with dead cells
-      m_bfr_next(rows * cols, State::Dead)     // second buffer
+    : m_height{rows},                                    // height in cells
+      m_width{cols},                                     // width in cells
+      m_mode{mode},                                      // Mode enum specifies the Cuda memory copy technique
+      m_threads{threads},                                // Number of threads per execution block
+      m_blocks{((rows * cols) + threads - 1) / threads}, // Number of blocks in the grid (round up)
+      m_bfr_current(rows * cols, State::Dead),           // allocate grid buffers with dead cells
+      m_bfr_next(rows * cols, State::Dead)               // second buffer
 {
 
     int devID = findCudaDevice();
@@ -49,20 +52,26 @@ Life::Life(size_t rows, size_t cols, Mode mode, uint threads)
     this->seedRandom();
 
     // Allocte device memory (host already allocated as a vector<State>)
-    checkCudaErrors(cudaMalloc(&d_bfr_current, sizeof(State) * m_width * m_height));
-    checkCudaErrors(cudaMalloc(&d_bfr_next, sizeof(State) * m_height * m_width));
+    // checkCudaErrors(cudaMalloc(&d_bfr_current, sizeof(State) * m_width * m_height));
+    // checkCudaErrors(cudaMalloc(&d_bfr_next, sizeof(State) * m_height * m_width));
+
+    checkCudaErrors(cudaMallocPitch(&d_bfr_current, &d_current_pitch,
+                                    sizeof(State) * m_width, m_height));
+    checkCudaErrors(cudaMallocPitch(&d_bfr_next, &d_next_pitch,
+                                    sizeof(State) * m_width, m_height));
+    // checkCudaErrors(cudaMalloc(&d_bfr_next, sizeof(State) * m_height * m_width));
 
     // calculate thread and block size
-    m_block_size = new dim3{threads, threads, 1};
-    uint linGrid = (uint)ceil(m_width + 2 / (float)threads);
-    m_grid_size  = new dim3{linGrid, linGrid, 1};
+    // m_block_size = new dim3{threads, threads, 1};
+    // uint linGrid = (uint)ceil(m_width + 2 / (float)threads);
+    // m_grid_size  = new dim3{linGrid, linGrid, 1};
 }
 
 /** Destructor frees allocated memory */
 Life::~Life()
 { // free heap data
-    delete m_grid_size;
-    delete m_block_size;
+    // delete m_grid_size;
+    // delete m_block_size;
 
     // free Cuda device memory
     checkCudaErrors(cudaFree(d_bfr_current));
@@ -123,40 +132,74 @@ std::vector<std::pair<int, int>> Life::getLiveCells() const
     return liveCells;
 }
 
-__global__ void deviceOneGeneration(uint8_t* now, uint8_t* next, size_t width, size_t height)
+__global__ void deviceOneGeneration(const uint8_t* now, uint8_t* next,
+                                    size_t pitch_now, size_t pitch_next,
+                                    int width, int height)
 {
-    size_t iy = blockDim.y * blockIdx.y + threadIdx.y + 1;
-    size_t ix = blockDim.x * blockIdx.x + threadIdx.x + 1;
-    size_t id = iy * (width + 2) + ix;
+    // "2d" arrangement of threads and blocks
+    int x_index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int y_index = (blockIdx.y * blockDim.y) + threadIdx.y;
 
-    int count = 0;
-    if (iy < height && ix < width) {
-        count = now[id + (height + 2)] +                          // Upper neighbor
-                now[id - (height + 2)] +                          // Lower neighbor
-                now[id + 1] +                                     // Right neighbor
-                now[id - 1] +                                     // Left neighbor
-                now[id + (height + 3)] + now[id - (height + 3)] + // Diagonal neighbors
-                now[id - (height + 1)] + now[id + (height + 1)];
+    // printf("Tidx=%d, Tidy=%d, Tidz=%d\n", threadIdx.x, threadIdx.y, threadIdx.z);
+    // printf("blkX=%d, blkY=%d, blkZ=%d\n", blockDim.x, blockDim.y, blockDim.z);
+    // printf("gridX=%d, gridY=%d, gridZ=%d\n", gridDim.x, gridDim.y, gridDim.z);
 
-        // coerced into 1/0, TODO: maybe ok?
-        next[id] = (count == 3 || (count == 2 && now[id]));
+    /* total number of spawned threads in x direction*/
+    int stride_col = blockDim.x * gridDim.x;
+    /* total number of spawned threads in y direction*/
+    int stride_row = blockDim.y * gridDim.y;
+
+    // 2d stride loop. Only executed more than once if not enough threads
+    for (size_t row = y_index; row < height; row += stride_row) {
+        for (size_t col = x_index; col < width; col += stride_col) {
+            // T* pElement = (T*)((char*)BaseAddress + Row * pitch) + Column;
+            uint8_t* this_cell = (uint8_t*)((char*)now + row * pitch_now) + col;
+            uint8_t* next_cell = (uint8_t*)((char*)next + row * pitch_next) + col;
+            *next_cell         = *this_cell ? 0u : 1u;
+            // next[row][col] = now[row][col] ? 0u : 1u;
+        }
     }
+    return;
+    // size_t ix = blockDim.x * blockIdx.x + threadIdx.x + 1;
+    // size_t iy = blockDim.y * blockIdx.y + threadIdx.y + 1;
+    // size_t id = iy * (width + 2) + ix;
+
+    // int count = 0;
+    // if (iy < height && ix < width) {
+    //     count = now[id + (height + 2)] +                          // Upper neighbor
+    //             now[id - (height + 2)] +                          // Lower neighbor
+    //             now[id + 1] +                                     // Right neighbor
+    //             now[id - 1] +                                     // Left neighbor
+    //             now[id + (height + 3)] + now[id - (height + 3)] + // Diagonal neighbors
+    //             now[id - (height + 1)] + now[id + (height + 1)];
+
+    //     next[id] = (count == 3 || (count == 2 && now[id])) ? 1u : 0u;
+    // }
 }
 
 void Life::updateCudaNormal()
 {
     // copy host array (vector) to device
-    checkCudaErrors(cudaMemcpy(d_bfr_current, m_bfr_current.data(),
-                               sizeof(State) * m_bfr_current.size(),
-                               cudaMemcpyHostToDevice));
+    // checkCudaErrors(cudaMemcpy(d_bfr_current, m_bfr_current.data(),
+    //                            sizeof(State) * m_bfr_current.size(),
+    //                            cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy2D(d_bfr_current, d_current_pitch,
+                                 m_bfr_current.data(), sizeof(State) * m_width,
+                                 sizeof(State) * m_width, m_height,
+                                 cudaMemcpyHostToDevice));
     // execute kernel
-    deviceOneGeneration<<<*m_grid_size, *m_block_size>>>((uint8_t*)d_bfr_current, (uint8_t*)d_bfr_next, m_width, m_height);
+    deviceOneGeneration<<<dim3{32, 32}, dim3{16, 16}>>>((uint8_t*)d_bfr_current, (uint8_t*)d_bfr_next,
+                                                        d_current_pitch, d_next_pitch,
+                                                        m_width, m_height);
 
-    // copy memory back to device
-    checkCudaErrors(cudaDeviceSynchronize());
-    checkCudaErrors(cudaMemcpy(m_bfr_next.data(), d_bfr_next,
-                               sizeof(State) * m_bfr_next.size(),
-                               cudaMemcpyDeviceToHost));
+    // copy memory back to device (blocks until kernel done)
+    // checkCudaErrors(cudaMemcpy(m_bfr_next.data(), d_bfr_next,
+    //                            sizeof(State) * m_bfr_next.size(),
+    //                            cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpy2D(m_bfr_current.data(), sizeof(State) * m_width, /* dest pitch */
+                                 d_bfr_next, d_next_pitch,
+                                 sizeof(State) * m_width, m_height,
+                                 cudaMemcpyDeviceToHost));
     // new gen stored in bfr_next
     // swap the std::vectors. This only swaps the underlying pointers,
     // not the contained data. Very cheap and fast (hopefully)
