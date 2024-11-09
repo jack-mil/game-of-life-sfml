@@ -100,18 +100,17 @@ class Life {
     /** Parallelization technique to use */
     const Mode m_mode;
 
-    /** Number of threads per block to use */
-    const size_t m_threads;
-    /** Number of blocks per grid to use */
-    const size_t m_blocks;
+    /** Number and shape of threads per block */
+    dim3* m_threads = nullptr;
+    /** Number and shape of blocks per grid */
+    dim3* m_blocks = nullptr;
 
     /** Buffer with current state */
-    Grid m_bfr_current;
+    State* m_bfr_current = nullptr;
 
     /** Next buffer to write to */
-    Grid m_bfr_next;
+    State* m_bfr_next = nullptr;
 
     State* d_bfr_current = nullptr;
     State* d_bfr_next    = nullptr;
-
 };

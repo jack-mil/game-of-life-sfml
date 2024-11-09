@@ -16,7 +16,7 @@ Control the SFML OS window and display the Game of Life simulation on the screen
 #include "App.hpp"
 
 App::App(size_t width, size_t height, size_t cellSize, Mode mode, uint threads, bool no_gui)
-    : m_life{width / cellSize, height / cellSize, mode, threads},
+    : m_life{height / cellSize, width / cellSize, mode, threads},
       m_cellSprite{sf::Vector2f(cellSize, cellSize)},
       m_mode{mode},
       m_threads{threads},
@@ -61,6 +61,11 @@ void App::run()
 
     long int iterations = 0;
 
+    // Represent the current state suing SFML graphics
+    drawLife();
+
+    // Display the new frame
+    m_window.display();
     while (m_window.isOpen() || m_no_gui) { 
 
         // Simulate the next generation,
@@ -133,6 +138,7 @@ void App::printTimings(sf::Time elapsed)
 void App::handleEvents()
 {
     static sf::Event event;
+    while(true){
     while (m_window.pollEvent(event)) {
         if (event.type == sf::Event::Closed) { // close with 'X' button
             m_window.close();
@@ -141,7 +147,11 @@ void App::handleEvents()
             if (event.key.code == sf::Keyboard::Escape || event.key.code == sf::Keyboard::Return) {
                 m_window.close();
             }
+            if(event.key.code == sf::Keyboard::Space) {
+                return;
+            }
         }
+    }
     }
 }
 
@@ -153,7 +163,7 @@ void App::drawLife()
     // Draw only the living cells at (row, col) (pair<int,int>)
     for (const auto& [row, col] : m_life.getLiveCells()) {
         // Draw the same sprite object at many positions
-        m_cellSprite.setPosition(row * size.x, col * size.y);
+        m_cellSprite.setPosition(col * size.x, row * size.y);
         m_window.draw(m_cellSprite);
     }
 }
