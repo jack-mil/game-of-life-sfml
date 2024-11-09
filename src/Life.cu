@@ -77,8 +77,14 @@ Life::~Life()
     // free heap data
     delete m_threads;
     delete m_blocks;
-    delete m_bfr_current;
-    delete m_bfr_next;
+    if (m_mode == Mode::Normal) {
+        delete m_bfr_current;
+        delete m_bfr_next;
+    }
+    else if (m_mode == Mode::Pinned) {
+        checkCudaErrors(cudaFreeHost(m_bfr_current));
+        checkCudaErrors(cudaFreeHost(m_bfr_next));
+    }
     // free Cuda device memory
     checkCudaErrors(cudaFree(d_bfr_current));
     checkCudaErrors(cudaFree(d_bfr_next));
@@ -95,9 +101,6 @@ void Life::seedRandom()
     for (size_t i = 0; i < m_width * m_height; i++) {
         m_bfr_current[i] = static_cast<State>(coin_flip(gen));
     }
-    // for (auto& cell : m_bfr_current) {
-    //     cell = static_cast<State>(coin_flip(gen));
-    // }
 }
 
 void Life::allocateMemory()
@@ -106,19 +109,34 @@ void Life::allocateMemory()
 
         m_bfr_current = new State[m_width * m_height];
         m_bfr_next    = new State[m_width * m_height];
-
-        // Allocte device memory (host already allocated as a vector<State>)
-        checkCudaErrors(cudaMallocPitch(&d_bfr_current, &d_current_pitch,
-                                        sizeof(State) * m_width, m_height));
-        checkCudaErrors(cudaMallocPitch(&d_bfr_next, &d_next_pitch,
-                                        sizeof(State) * m_width, m_height));
     }
     else if (m_mode == Mode::Managed) {
-        /* code */
+        checkCudaErrors(
+            cudaMallocManaged(&d_bfr_current, sizeof(State) * m_width * m_height));
+        d_current_pitch = sizeof(State) * m_width; // no special alignment
+
+        checkCudaErrors(
+            cudaMallocManaged(&d_bfr_next, sizeof(State) * m_width * m_height));
+        d_next_pitch = sizeof(State) * m_width; // no special alignment
+
+        // device and host can access the same memory
+        m_bfr_current = d_bfr_current;
+        m_bfr_next = d_bfr_next;
+        return; // don't malloc again below
     }
     else if (m_mode == Mode::Pinned) {
-        /* code */
+        checkCudaErrors(
+            cudaMallocHost(&m_bfr_current, sizeof(State) * m_width * m_height));
+        checkCudaErrors(
+            cudaMallocHost(&m_bfr_next, sizeof(State) * m_width * m_height));
     }
+    // Allocte 2d aligned device memory (for normal and pinned mode)
+    checkCudaErrors(
+        cudaMallocPitch(&d_bfr_current, &d_current_pitch,
+                        sizeof(State) * m_width, m_height));
+    checkCudaErrors(
+        cudaMallocPitch(&d_bfr_next, &d_next_pitch,
+                        sizeof(State) * m_width, m_height));
 }
 
 /**
@@ -166,8 +184,7 @@ void Life::doOneGeneration()
         break;
     }
 
-    // swap the std::vectors. This only swaps the underlying pointers,
-    // not the contained data. Very cheap and fast (hopefully)
+    // swap world pointers for the next gen
     std::swap(m_bfr_current, m_bfr_next);
 }
 
@@ -190,18 +207,11 @@ __global__ void deviceOneGeneration(uint8_t* now, uint8_t* next,
     /* total number of spawned threads in y direction*/
     uint stride_row = blockDim.y * gridDim.y;
 
-    // if (x_index == 0 || x_index >= width) {
-    //     return;
-    // }
-    // if (y_index == 0 || y_index >= height) {
-    //     return;
-    // }
-
     // 2d stride loop. Only executed more than once if not enough blocks (unlikely)
     for (size_t y = y_index; y < height; y += stride_row) {
         for (size_t x = x_index; x < width; x += stride_col) {
-            // T* pElement = (T*)((char*)BaseAddress + Row * pitch) + Column;
 
+            // T* pElement = (T*)((char*)BaseAddress + Row * pitch) + Column;
             uint8_t* top_row = now + ((y - 1) * pitch_now);
             uint8_t* mid_row = now + (y * pitch_now);
             uint8_t* bot_row = now + ((y + 1) * pitch_now);
@@ -219,9 +229,6 @@ __global__ void deviceOneGeneration(uint8_t* now, uint8_t* next,
                                                                      // next[(y * pitch_next) + x] = (count == 3 || (count == 2 && mid_row[x])) ? 1u : 0u;
         }
     }
-    // size_t ix = blockDim.x * blockIdx.x + threadIdx.x + 1;
-    // size_t iy = blockDim.y * blockIdx.y + threadIdx.y + 1;
-    // size_t id = iy * (width + 2) + ix;
 }
 
 void Life::updateCudaNormal()
@@ -253,11 +260,20 @@ void Life::updateCudaNormal()
                                  d_bfr_next, d_next_pitch,
                                  sizeof(State) * m_width, m_height,
                                  cudaMemcpyDeviceToHost));
-    // new gen stored in bfr_next
+    // new gen stored in m_bfr_next
 }
 void Life::updateCudaManaged()
 {
+    // execute kernel
+    deviceOneGeneration<<<*m_blocks, *m_threads>>>((uint8_t*)d_bfr_current, (uint8_t*)d_bfr_next,
+                                                   d_current_pitch, d_next_pitch,
+                                                   m_width, m_height);
+    checkCudaErrors(cudaDeviceSynchronize());
+    checkCudaErrors(cudaPeekAtLastError());
 }
 void Life::updateCudaPinned()
 {
+    // actually the same calls as normal,
+    // difference was the allocation setup.
+    this->updateCudaNormal();
 }
