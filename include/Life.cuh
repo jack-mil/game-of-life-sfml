@@ -111,6 +111,8 @@ class Life {
     /** Next buffer to write to */
     State* m_bfr_next = nullptr;
 
+    size_t d_current_pitch; // width in bytes of allocation
+    size_t d_next_pitch;    // width in bytes of allocation
     State* d_bfr_current = nullptr;
     State* d_bfr_next    = nullptr;
 };

@@ -16,9 +16,6 @@ Implementation of Game of Life rules. Does not display the simulated world.
 #include "helper_cuda.cuh"
 #include <cassert>
 
-size_t d_current_pitch; // width in bytes of allocation
-size_t d_next_pitch;    // width in bytes of allocation
-
 /** Only constructor for Life class */
 Life::Life(size_t height, size_t width, Mode mode, uint threads)
     : m_height{height},       // height in cells
@@ -34,19 +31,20 @@ Life::Life(size_t height, size_t width, Mode mode, uint threads)
 
     int devID = findCudaDevice();
 
-    cudaDeviceProp deviceProp;
-    checkCudaErrors(cudaGetDeviceProperties(&deviceProp, devID));
+    cudaDeviceProp props;
+    checkCudaErrors(cudaGetDeviceProperties(&props, devID));
 
-    if (!deviceProp.managedMemory) {
+    if (!props.managedMemory) {
         // Game of life requires being run on a device that supports Unified Memory
         fprintf(stderr, "Unified Memory not supported on this device\n");
         exit(EXIT_WAIVED);
     }
 
-    // Statistics about the GPU device
-    printf(
-        "> GPU device has %d Multi-Processors, SM %d.%d compute capabilities\n\n",
-        deviceProp.multiProcessorCount, deviceProp.major, deviceProp.minor);
+    if (!threads > props.maxThreadsPerBlock) {
+        fprintf(stderr, "Threads per block cannot be greater than: %d", props.maxThreadsPerBlock);
+        exit(EXIT_WAIVED);
+    }
+    printDeviceStats(props);
 
     assert(mode == Mode::Normal);
 
@@ -65,6 +63,7 @@ Life::Life(size_t height, size_t width, Mode mode, uint threads)
     // calculate 2D thread and block size
     // we want maximum parallelism,
     // so try to get a thread for every cell (x,y)
+
     m_threads = new dim3{threads, threads}; // AKA block size
     // need enough blocks for a thread for every cell
     m_blocks = new dim3{
@@ -83,7 +82,7 @@ Life::~Life()
     delete m_threads;
     delete m_blocks;
     delete m_bfr_current;
-    delete d_bfr_next;
+    delete m_bfr_next;
     // free Cuda device memory
     checkCudaErrors(cudaFree(d_bfr_current));
     checkCudaErrors(cudaFree(d_bfr_next));
@@ -200,32 +199,32 @@ __global__ void deviceOneGeneration(uint8_t* now, uint8_t* next,
 void Life::updateCudaNormal()
 {
     // copy host array (vector) to device
-    checkCudaErrors(cudaMemcpy(d_bfr_current, m_bfr_current,
-                               sizeof(State) * m_width * m_height,
-                               cudaMemcpyHostToDevice));
+    // checkCudaErrors(cudaMemcpy(d_bfr_current, m_bfr_current,
+    //                            sizeof(State) * m_width * m_height,
+    //                            cudaMemcpyHostToDevice));
     // checkCudaErrors(cudaMemcpy(d_bfr_current, m_bfr_current.data(),
     //                            sizeof(State) * m_bfr_current.size(),
     //                            cudaMemcpyHostToDevice));
-    // checkCudaErrors(cudaMemcpy2D(d_bfr_current, d_current_pitch,
-    //                              m_bfr_current.data(), sizeof(State) * m_width,
-    //                              sizeof(State) * m_width, m_height,
-    //                              cudaMemcpyHostToDevice));
+    checkCudaErrors(cudaMemcpy2D(d_bfr_current, d_current_pitch,
+                                 m_bfr_current, sizeof(State) * m_width, // host pitch is width
+                                 sizeof(State) * m_width, m_height,
+                                 cudaMemcpyHostToDevice));
     // execute kernel
     deviceOneGeneration<<<*m_blocks, *m_threads>>>((uint8_t*)d_bfr_current, (uint8_t*)d_bfr_next,
                                                    d_current_pitch, d_next_pitch,
                                                    m_width, m_height);
-
+    checkCudaErrors( cudaPeekAtLastError() ); // detect errors in kernel execution
     // copy memory back to device (blocks until kernel done)
-    checkCudaErrors(cudaMemcpy(m_bfr_next, d_bfr_next,
-                               sizeof(State) * m_height * m_width,
-                               cudaMemcpyDeviceToHost));
+    // checkCudaErrors(cudaMemcpy(m_bfr_next, d_bfr_next,
+    //                            sizeof(State) * m_height * m_width,
+    //                            cudaMemcpyDeviceToHost));
     // checkCudaErrors(cudaMemcpy(m_bfr_next.data(), d_bfr_next,
     //                            sizeof(State) * m_bfr_next.size(),
     //                            cudaMemcpyDeviceToHost));
-    // checkCudaErrors(cudaMemcpy2D(m_bfr_next.data(), sizeof(State) * m_width, /* pitch==width on host */
-    //                              d_bfr_next, d_next_pitch,
-    //                              sizeof(State) * m_width, m_height,
-    //                              cudaMemcpyDeviceToHost));
+    checkCudaErrors(cudaMemcpy2D(m_bfr_next, sizeof(State) * m_width, /* pitch==width on host */
+                                 d_bfr_next, d_next_pitch,
+                                 sizeof(State) * m_width, m_height,
+                                 cudaMemcpyDeviceToHost));
     // new gen stored in bfr_next
     // swap the std::vectors. This only swaps the underlying pointers,
     // not the contained data. Very cheap and fast (hopefully)

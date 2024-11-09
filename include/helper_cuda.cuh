@@ -248,16 +248,22 @@ inline int findCudaDevice()
 {
     int devID = 0;
 
-    // Otherwise pick the device with highest Gflops/s
+    // Pick the device with highest Gflops/s
     devID = gpuGetMaxGflopsDeviceId();
     checkCudaErrors(cudaSetDevice(devID));
-    int major = 0, minor = 0;
-    checkCudaErrors(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, devID));
-    checkCudaErrors(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, devID));
-    printf("Found GPU Device %d: \"%s\" with compute capability %d.%d\n",
-           devID, _ConvertSMVer2ArchName(major, minor), major, minor);
 
     return devID;
+}
+
+inline void printDeviceStats(cudaDeviceProp props)
+{
+    // Statistics about the GPU device
+    const int  major = props.major;
+    const int  minor = props.minor;
+    const auto arch  = _ConvertSMVer2ArchName(major, minor);
+    printf(
+        "%s:> \"%s\" Device : %d Multi-Processors, SM %d.%d compute capabilities\n\n",
+        props.name, arch, props.multiProcessorCount, props.major, props.minor);
 }
 
 #endif

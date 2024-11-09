@@ -21,9 +21,9 @@ App::App(size_t width, size_t height, size_t cellSize, Mode mode, uint threads, 
       m_mode{mode},
       m_threads{threads},
       m_no_gui{no_gui}
-{   
+{
     // Only do SFML stuff if running in "GUI" mode
-    if (!no_gui) {
+    if (!m_no_gui) {
         setupWindow(width, height);
     }
 
@@ -31,9 +31,9 @@ App::App(size_t width, size_t height, size_t cellSize, Mode mode, uint threads, 
     std::cout.imbue(std::locale(""));
 }
 
-/** 
+/**
  * Create and position the OS window with a given width and height (in pixels)
- * 
+ *
  * @param width horizontal size
  * @param height vertical size
  */
@@ -61,16 +61,10 @@ void App::run()
 
     long int iterations = 0;
 
-    // Represent the current state suing SFML graphics
-    drawLife();
-
-    // Display the new frame
-    m_window.display();
-    while (m_window.isOpen() || m_no_gui) { 
+    while (m_window.isOpen() || m_no_gui) {
 
         // Simulate the next generation,
         // and time how long it takes with the current mode
-
         timer.restart();            // timer start
         m_life.doOneGeneration();   // generate Life
         elapsed += timer.restart(); // timer end
@@ -86,14 +80,12 @@ void App::run()
         if (m_no_gui && iterations > 600) {
             break;
         }
-
+        
         // Don't do SFML display stuff if no GUI mode
         if (m_no_gui) {
             continue;
         }
-
-        handleEvents();
-
+        
         // Clear the window (old frame)
         m_window.clear();
 
@@ -102,8 +94,10 @@ void App::run()
 
         // Display the new frame
         m_window.display();
+        
+        handleEvents();
     }
-    
+
     // Window is closed, time to quit
 }
 
@@ -138,20 +132,17 @@ void App::printTimings(sf::Time elapsed)
 void App::handleEvents()
 {
     static sf::Event event;
-    while(true){
     while (m_window.pollEvent(event)) {
-        if (event.type == sf::Event::Closed) { // close with 'X' button
+        if (event.type == sf::Event::Closed) { // close with window controls
             m_window.close();
         }
-        else if (event.type == sf::Event::KeyPressed) { // close with ESC or ENTER
-            if (event.key.code == sf::Keyboard::Escape || event.key.code == sf::Keyboard::Return) {
+        else if (event.type == sf::Event::KeyPressed) { // close with ESC or ENTER or Q
+            if (event.key.code == sf::Keyboard::Escape ||
+                event.key.code == sf::Keyboard::Return ||
+                event.key.code == sf::Keyboard::Q) {
                 m_window.close();
             }
-            if(event.key.code == sf::Keyboard::Space) {
-                return;
-            }
         }
-    }
     }
 }
 
