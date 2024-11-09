@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
     } // clang-format on
 
     if (threads > 1024 || threads < 32 || threads % 32 != 0) {
-        std::cout << "Number of threads per block must be power of 2 between [32, 1024]\n";
+        std::cout << "Number of threads per block must be multiple of 32 between [32, 1024]\n";
         return EXIT_FAILURE;
     }
 

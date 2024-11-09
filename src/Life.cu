@@ -55,18 +55,22 @@ Life::Life(size_t height, size_t width, Mode mode, uint threads)
     checkCudaErrors(cudaMallocPitch(&d_bfr_next, &d_next_pitch,
                                     sizeof(State) * m_width, m_height));
 
-    // calculate 2D thread and block size
-    // we want maximum parallelism,
-    // so try to get a thread for every cell (x,y)
+    // assume threads is multiple of 32
+    const uint long_side = threads >= 512   ? 32
+                           : threads >= 128 ? 16
+                                            : 8;
 
-    m_threads = new dim3{threads, threads}; // AKA block size
-    // need enough blocks for a thread for every cell
+    auto y_dim = threads / long_side;
+    auto x_dim = threads / y_dim;
+    m_threads  = new dim3{x_dim, y_dim}; // AKA block size
+    // need enough blocks for a thread for every cell (round up)
     m_blocks = new dim3{
         ((uint)m_width + m_threads->x - 1) / m_threads->x,
         ((uint)m_height + m_threads->y - 1) / m_threads->y,
     }; // AKA Grid size
-    printf("cells %dx%d\n", m_width, m_height);
-    printf("blockDim=(%u,%u,%u), gridDim=(%u,%u,%u)\n",
+    
+    printf("Life %dx%d\n", m_width, m_height);
+    printf("CUDA : blockDim=(%u,%u,%u), gridDim=(%u,%u,%u)\n",
            m_threads->x, m_threads->y, m_threads->z,
            m_blocks->x, m_blocks->y, m_blocks->z);
 
