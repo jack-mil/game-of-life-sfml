@@ -67,6 +67,9 @@ class Life {
     /** Setup initial random state */
     void seedRandom();
 
+    /** Allocate host ans device memmory accordin got Mode */
+    void allocateMemory();
+
     /** Get the state of a current cell */
     State getCell(size_t row, size_t col) const;
 

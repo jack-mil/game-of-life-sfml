@@ -46,16 +46,7 @@ Life::Life(size_t height, size_t width, Mode mode, uint threads)
     }
     printDeviceStats(props);
 
-    assert(mode == Mode::Normal);
-
-    m_bfr_current = new State[m_width * m_height];
-    m_bfr_next    = new State[m_width * m_height];
-
-    // Allocte device memory (host already allocated as a vector<State>)
-    checkCudaErrors(cudaMallocPitch(&d_bfr_current, &d_current_pitch,
-                                    sizeof(State) * m_width, m_height));
-    checkCudaErrors(cudaMallocPitch(&d_bfr_next, &d_next_pitch,
-                                    sizeof(State) * m_width, m_height));
+    this->allocateMemory();
 
     // assume threads is multiple of 32
     const uint long_side = threads >= 512   ? 32
@@ -109,6 +100,27 @@ void Life::seedRandom()
     // }
 }
 
+void Life::allocateMemory()
+{
+    if (m_mode == Mode::Normal) {
+
+        m_bfr_current = new State[m_width * m_height];
+        m_bfr_next    = new State[m_width * m_height];
+
+        // Allocte device memory (host already allocated as a vector<State>)
+        checkCudaErrors(cudaMallocPitch(&d_bfr_current, &d_current_pitch,
+                                        sizeof(State) * m_width, m_height));
+        checkCudaErrors(cudaMallocPitch(&d_bfr_next, &d_next_pitch,
+                                        sizeof(State) * m_width, m_height));
+    }
+    else if (m_mode == Mode::Managed) {
+        /* code */
+    }
+    else if (m_mode == Mode::Pinned) {
+        /* code */
+    }
+}
+
 /**
  * Convert row,col specifier to the 1D vector access
  * Reads from current state
@@ -134,6 +146,7 @@ std::vector<std::pair<int, int>> Life::getLiveCells() const
     }
     return liveCells;
 }
+
 /**
  * Run one iteration of the Game of Life
  * Use different parallelization techniques according to the current mode
@@ -228,7 +241,7 @@ void Life::updateCudaNormal()
     deviceOneGeneration<<<*m_blocks, *m_threads>>>((uint8_t*)d_bfr_current, (uint8_t*)d_bfr_next,
                                                    d_current_pitch, d_next_pitch,
                                                    m_width, m_height);
-    checkCudaErrors( cudaPeekAtLastError() ); // detect errors in kernel execution
+    checkCudaErrors(cudaPeekAtLastError()); // detect errors in kernel execution
     // copy memory back to device (blocks until kernel done)
     // checkCudaErrors(cudaMemcpy(m_bfr_next, d_bfr_next,
     //                            sizeof(State) * m_height * m_width,
