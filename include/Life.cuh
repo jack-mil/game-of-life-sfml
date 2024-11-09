@@ -70,26 +70,11 @@ class Life {
     /** Get the state of a current cell */
     State getCell(size_t row, size_t col) const;
 
-    /** Optimized method for wrapping around edges */
-    State getCellWrap(long row, long col) const;
-
-    /** Set the state for next iteration */
-    void setCell(size_t row, size_t col, State state);
-
     void updateCudaManaged();
 
     void updateCudaPinned();
 
     void updateCudaNormal();
-
-    /** Actual looping through the grid, used by above methods */
-    void process_chunk(size_t start_row, size_t end_row);
-
-    /** Return what the next state of the cell at (row,col) should be */
-    State simulateSingleCell(size_t row, size_t col) const;
-
-    /** Return how many living neighbors around a cell at (row,col) */
-    int countNeighbors(size_t row, size_t col) const;
 
     /** Number of cell rows */
     const size_t m_height;
