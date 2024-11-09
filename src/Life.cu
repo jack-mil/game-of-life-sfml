@@ -18,15 +18,13 @@ Implementation of Game of Life rules. Does not display the simulated world.
 
 /** Only constructor for Life class */
 Life::Life(size_t height, size_t width, Mode mode, uint threads)
-    : m_height{height},       // height in cells
-      m_width{width},         // width in cells
-      m_mode{mode},           // Mode enum specifies the Cuda memory copy technique
-      m_threads{nullptr},     // Number of threads per execution block
-      m_blocks{nullptr},      // Number of blocks in the grid (round up)
-      m_bfr_current{nullptr}, // allocate grid buffers with dead cells
-      m_bfr_next{nullptr}     // second buffer
-//   m_bfr_current(rows * cols, State::Dead),           // allocate grid buffers with dead cells
-//   m_bfr_next(rows * cols, State::Dead)               // second buffer
+    : m_height{height},                           // height in cells
+      m_width{width},                             // width in cells
+      m_mode{mode},                               // Mode enum specifies the Cuda memory copy technique
+      m_threads{nullptr},                         // Dim of threads per execution block
+      m_blocks{nullptr},                          // Dim of blocks in the grid (round up)
+      m_bfr_current(height * width, State::Dead), // allocate grid buffers with dead cells
+      m_bfr_next(height * width, State::Dead)     // second buffer
 {
 
     int devID = findCudaDevice();
@@ -47,9 +45,6 @@ Life::Life(size_t height, size_t width, Mode mode, uint threads)
     printDeviceStats(props);
 
     assert(mode == Mode::Normal);
-
-    m_bfr_current = new State[m_width * m_height];
-    m_bfr_next    = new State[m_width * m_height];
 
     // Allocte device memory (host already allocated as a vector<State>)
     // checkCudaErrors(cudaMalloc(&d_bfr_current, sizeof(State) * m_width * m_height));
@@ -81,8 +76,6 @@ Life::~Life()
     // free heap data
     delete m_threads;
     delete m_blocks;
-    delete m_bfr_current;
-    delete m_bfr_next;
     // free Cuda device memory
     checkCudaErrors(cudaFree(d_bfr_current));
     checkCudaErrors(cudaFree(d_bfr_next));
@@ -96,12 +89,12 @@ void Life::seedRandom()
 {
     std::default_random_engine  gen(std::random_device{}());
     std::bernoulli_distribution coin_flip(0.5); // uniform boolean true/false distribution
-    for (size_t i = 0; i < m_width * m_height; i++) {
-        m_bfr_current[i] = static_cast<State>(coin_flip(gen));
-    }
-    // for (auto& cell : m_bfr_current) {
-    //     cell = static_cast<State>(coin_flip(gen));
+    // for (size_t i = 0; i < m_width * m_height; i++) {
+    //     m_bfr_current[i] = static_cast<State>(coin_flip(gen));
     // }
+    for (auto& cell : m_bfr_current) {
+        cell = static_cast<State>(coin_flip(gen));
+    }
 }
 
 /**
@@ -199,29 +192,17 @@ __global__ void deviceOneGeneration(uint8_t* now, uint8_t* next,
 void Life::updateCudaNormal()
 {
     // copy host array (vector) to device
-    // checkCudaErrors(cudaMemcpy(d_bfr_current, m_bfr_current,
-    //                            sizeof(State) * m_width * m_height,
-    //                            cudaMemcpyHostToDevice));
-    // checkCudaErrors(cudaMemcpy(d_bfr_current, m_bfr_current.data(),
-    //                            sizeof(State) * m_bfr_current.size(),
-    //                            cudaMemcpyHostToDevice));
     checkCudaErrors(cudaMemcpy2D(d_bfr_current, d_current_pitch,
-                                 m_bfr_current, sizeof(State) * m_width, // host pitch is width
+                                 m_bfr_current.data(), sizeof(State) * m_width, // host pitch is width
                                  sizeof(State) * m_width, m_height,
                                  cudaMemcpyHostToDevice));
     // execute kernel
     deviceOneGeneration<<<*m_blocks, *m_threads>>>((uint8_t*)d_bfr_current, (uint8_t*)d_bfr_next,
                                                    d_current_pitch, d_next_pitch,
                                                    m_width, m_height);
-    checkCudaErrors( cudaPeekAtLastError() ); // detect errors in kernel execution
+    checkCudaErrors(cudaPeekAtLastError()); // detect errors in kernel execution
     // copy memory back to device (blocks until kernel done)
-    // checkCudaErrors(cudaMemcpy(m_bfr_next, d_bfr_next,
-    //                            sizeof(State) * m_height * m_width,
-    //                            cudaMemcpyDeviceToHost));
-    // checkCudaErrors(cudaMemcpy(m_bfr_next.data(), d_bfr_next,
-    //                            sizeof(State) * m_bfr_next.size(),
-    //                            cudaMemcpyDeviceToHost));
-    checkCudaErrors(cudaMemcpy2D(m_bfr_next, sizeof(State) * m_width, /* pitch==width on host */
+    checkCudaErrors(cudaMemcpy2D(m_bfr_next.data(), sizeof(State) * m_width, /* pitch==width on host */
                                  d_bfr_next, d_next_pitch,
                                  sizeof(State) * m_width, m_height,
                                  cudaMemcpyDeviceToHost));

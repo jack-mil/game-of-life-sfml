@@ -61,8 +61,6 @@ class Life {
     std::vector<std::pair<int, int>> getLiveCells() const;
 
   private:
-    /** Type alias to save space */
-    using Grid = std::vector<State>;
 
     /** Setup initial random state */
     void seedRandom();
@@ -106,10 +104,10 @@ class Life {
     dim3* m_blocks = nullptr;
 
     /** Buffer with current state */
-    State* m_bfr_current = nullptr;
+    std::vector<State> m_bfr_current;
 
     /** Next buffer to write to */
-    State* m_bfr_next = nullptr;
+    std::vector<State> m_bfr_next;
 
     size_t d_current_pitch; // width in bytes of allocation
     size_t d_next_pitch;    // width in bytes of allocation
