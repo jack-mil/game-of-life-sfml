@@ -151,6 +151,7 @@ void Life::doOneGeneration()
     std::swap(m_bfr_current, m_bfr_next);
 }
 
+/* Device kernel using a 2d grid and block size */
 __global__ void deviceOneGeneration(uint8_t* now, uint8_t* next,
                                     size_t pitch_now, size_t pitch_next,
                                     int width, int height)
