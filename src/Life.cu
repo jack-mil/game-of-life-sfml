@@ -65,6 +65,10 @@ Life::Life(size_t height, size_t width, Mode mode, uint threads)
         ((uint)m_width + m_threads->x - 1) / m_threads->x,
         ((uint)m_height + m_threads->y - 1) / m_threads->y,
     }; // AKA Grid size
+    printf("cells %dx%d\n", m_width, m_height);
+    printf("blockDim=(%u,%u,%u), gridDim=(%u,%u,%u)\n",
+           m_threads->x, m_threads->y, m_threads->z,
+           m_blocks->x, m_blocks->y, m_blocks->z);
 
     // Seed the host starting universe with a random state
     this->seedRandom();
@@ -143,8 +147,8 @@ __global__ void deviceOneGeneration(uint8_t* now, uint8_t* next,
                                     int width, int height)
 {
     // "2d" arrangement of threads and blocks
-    unsigned int x_index = (blockIdx.x * blockDim.x) + threadIdx.x;
-    unsigned int y_index = (blockIdx.y * blockDim.y) + threadIdx.y;
+    uint x_index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    uint y_index = (blockIdx.y * blockDim.y) + threadIdx.y;
 
     // printf("px=%ud,%ud\n", x_index, y_index);
     // printf("Tidx=%d, Tidy=%d, Tidz=%d\n", threadIdx.x, threadIdx.y, threadIdx.z);
@@ -152,9 +156,9 @@ __global__ void deviceOneGeneration(uint8_t* now, uint8_t* next,
     // printf("gridX=%d, gridY=%d, gridZ=%d\n", gridDim.x, gridDim.y, gridDim.z);
 
     /* total number of spawned threads in x direction*/
-    int stride_col = blockDim.x * gridDim.x;
+    uint stride_col = blockDim.x * gridDim.x;
     /* total number of spawned threads in y direction*/
-    int stride_row = blockDim.y * gridDim.y;
+    uint stride_row = blockDim.y * gridDim.y;
 
     // if (x_index == 0 || x_index >= width) {
     //     return;
@@ -163,10 +167,11 @@ __global__ void deviceOneGeneration(uint8_t* now, uint8_t* next,
     //     return;
     // }
 
-    // 2d stride loop. Only executed more than once if not enough threads
+    // 2d stride loop. Only executed more than once if not enough blocks (unlikely)
     for (size_t y = y_index; y < height; y += stride_row) {
         for (size_t x = x_index; x < width; x += stride_col) {
             // T* pElement = (T*)((char*)BaseAddress + Row * pitch) + Column;
+
             uint8_t* top_row = now + ((y - 1) * pitch_now);
             uint8_t* mid_row = now + (y * pitch_now);
             uint8_t* bot_row = now + ((y + 1) * pitch_now);
@@ -181,7 +186,7 @@ __global__ void deviceOneGeneration(uint8_t* now, uint8_t* next,
             next[(y * pitch_next) + x] = (count == 3)   ? 1u         // alive
                                          : (count == 4) ? mid_row[x] // no change
                                                         : 0u;        // dies
-            // next[(y * pitch_next) + x] = (count == 3 || (count == 2 && mid_row[x])) ? 1u : 0u;
+                                                                     // next[(y * pitch_next) + x] = (count == 3 || (count == 2 && mid_row[x])) ? 1u : 0u;
         }
     }
     // size_t ix = blockDim.x * blockIdx.x + threadIdx.x + 1;
